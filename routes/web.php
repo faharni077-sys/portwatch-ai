@@ -5,7 +5,7 @@ use App\Http\Controllers\CountryController;
 use Illuminate\Support\Facades\Route;
 
 
-Route::get('/country', [CountryController::class, 'index'])->name('country');
+
 Route::get('/', function () {
     return view('welcome');
 });
