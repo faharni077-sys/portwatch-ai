@@ -7,13 +7,34 @@ use Illuminate\Database\Eloquent\Model;
 class Country extends Model
 {
     protected $fillable = [
-        'code',
         'name',
+        'code',
         'capital',
-        'region',
         'currency',
+        'region',
         'language',
-        'flag',
-        'population'
+        'population',
+        'flag'
     ];
+
+    public function weatherLogs()
+{
+    return $this->hasMany(WeatherLog::class);
+}
+
+public function currencyRates()
+{
+    return $this->hasMany(CurrencyRate::class);
+}
+
+public function riskScores()
+{
+    return $this->hasMany(RiskScore::class);
+}
+
+public function news()
+{
+    return $this->hasMany(NewsCache::class);
+}
+
 }

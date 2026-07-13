@@ -1,91 +1,118 @@
-<div class="col-md-2 sidebar p-3">
+{{-- PortWatch AI - Futuristic HUD Sidebar --}}
+<div class="pw-sidebar-inner">
 
-    <div class="logo text-center py-4">
-
-        <h3 class="fw-bold text-white">
-            🌍 PortWatch AI
-        </h3>
-
-        <small class="text-info">
-            Global Logistics
-        </small>
-
+    {{-- Logo --}}
+    <div class="pw-logo">
+        <div class="pw-logo-icon">
+            <i class="bi bi-globe-americas"></i>
+        </div>
+        <div class="pw-logo-text">
+            <span class="pw-logo-name">PORTWATCH</span>
+            <span class="pw-logo-sub">AI · INTELLIGENCE</span>
+        </div>
     </div>
 
-    <ul class="nav flex-column mt-4">
+    {{-- Sector Badge --}}
+    <div class="pw-sector-badge">
+        <span class="dot-pulse"></span>
+        <span>SYSTEM ACTIVE</span>
+    </div>
 
-        <li class="nav-item">
-            <a href="{{ route('dashboard') }}"
-               class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                <i class="bi bi-speedometer2"></i>
-                Dashboard
-            </a>
-        </li>
+    {{-- Navigation --}}
+    <nav class="pw-nav">
+        <div class="pw-nav-label">MAIN MODULES</div>
 
-        <li class="nav-item">
-            <a href="{{ route('country') }}"
-               class="nav-link {{ request()->routeIs('country') ? 'active' : '' }}">
-                <i class="bi bi-globe2"></i>
-                Country
-            </a>
-        </li>
+        <a href="{{ route('dashboard') }}"
+           class="pw-nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+            <i class="bi bi-speedometer2"></i>
+            <span>Dashboard</span>
+            @if(request()->routeIs('dashboard'))
+                <span class="pw-nav-dot"></span>
+            @endif
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('weather') }}"
-               class="nav-link">
-                <i class="bi bi-cloud-sun"></i>
-                Weather
-            </a>
-        </li>
+        <a href="{{ route('countries.index') }}"
+           class="pw-nav-item {{ request()->routeIs('countries.*') ? 'active' : '' }}">
+            <i class="bi bi-globe2"></i>
+            <span>Countries</span>
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('currency') }}"
-               class="nav-link">
-                <i class="bi bi-currency-exchange"></i>
-                Currency
-            </a>
-        </li>
+        <a href="{{ route('weather') }}"
+           class="pw-nav-item {{ request()->routeIs('weather') ? 'active' : '' }}">
+            <i class="bi bi-cloud-lightning-rain"></i>
+            <span>Weather</span>
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('news') }}"
-               class="nav-link">
-                <i class="bi bi-newspaper"></i>
-                News
-            </a>
-        </li>
+        <a href="{{ route('currency') }}"
+           class="pw-nav-item {{ request()->routeIs('currency') ? 'active' : '' }}">
+            <i class="bi bi-currency-exchange"></i>
+            <span>Currency</span>
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('ports') }}"
-               class="nav-link">
-                <i class="bi bi-truck"></i>
-                Ports
-            </a>
-        </li>
+        <a href="{{ route('news') }}"
+           class="pw-nav-item {{ request()->routeIs('news') ? 'active' : '' }}">
+            <i class="bi bi-newspaper"></i>
+            <span>News Intel</span>
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('analytics') }}"
-               class="nav-link">
-                <i class="bi bi-graph-up-arrow"></i>
-                Analytics
-            </a>
-        </li>
+        <a href="{{ route('ports.index') }}"
+           class="pw-nav-item {{ request()->routeIs('ports.*') ? 'active' : '' }}">
+            <i class="bi bi-anchor"></i>
+            <span>Ports</span>
+        </a>
 
-        <li class="nav-item">
-            <a href="{{ route('compare') }}"
-               class="nav-link">
-                <i class="bi bi-bar-chart"></i>
-                Compare
-            </a>
-        </li>
+        <div class="pw-nav-divider"></div>
+        <div class="pw-nav-label">ANALYTICS</div>
 
-        <li class="nav-item">
-            <a href="{{ route('watchlist') }}"
-               class="nav-link">
-                <i class="bi bi-star-fill"></i>
-                Watchlist
-            </a>
-        </li>
+        <a href="{{ route('analytics') }}"
+           class="pw-nav-item {{ request()->routeIs('analytics') ? 'active' : '' }}">
+            <i class="bi bi-graph-up-arrow"></i>
+            <span>Analytics</span>
+        </a>
 
-    </ul>
+        <a href="{{ route('compare') }}"
+           class="pw-nav-item {{ request()->routeIs('compare') ? 'active' : '' }}">
+            <i class="bi bi-intersect"></i>
+            <span>Compare</span>
+        </a>
 
+        <a href="{{ route('watchlist') }}"
+           class="pw-nav-item {{ request()->routeIs('watchlist') ? 'active' : '' }}">
+            <i class="bi bi-bookmark-star"></i>
+            <span>Watchlist</span>
+        </a>
+
+        <div class="pw-nav-divider"></div>
+        <div class="pw-nav-label">ACCOUNT</div>
+
+        <a href="{{ route('profile.edit') }}"
+           class="pw-nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
+            <i class="bi bi-person-badge"></i>
+            <span>Profile</span>
+        </a>
+
+        <form method="POST" action="{{ route('logout') }}" class="d-block">
+            @csrf
+            <button type="submit" class="pw-nav-item pw-nav-logout w-100">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </button>
+        </form>
+    </nav>
+
+    {{-- System Status --}}
+    <div class="pw-sidebar-footer">
+        <div class="pw-sys-row">
+            <span class="pw-sys-label">NODE</span>
+            <span class="pw-sys-val text-success">ONLINE</span>
+        </div>
+        <div class="pw-sys-row">
+            <span class="pw-sys-label">API SYNC</span>
+            <span class="pw-sys-val text-info">ACTIVE</span>
+        </div>
+        <div class="pw-sys-row">
+            <span class="pw-sys-label">SECTOR</span>
+            <span class="pw-sys-val">GLOBAL</span>
+        </div>
+    </div>
 </div>

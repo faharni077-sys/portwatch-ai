@@ -19,6 +19,7 @@ return new class extends Migration
         $table->string('source')->nullable();
         $table->string('url')->nullable();
         $table->dateTime('published_at')->nullable();
+        $table->string('sentiment')->nullable();
         $table->timestamps();
     });
 }

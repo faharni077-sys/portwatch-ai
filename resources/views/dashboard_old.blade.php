@@ -1,66 +1,7 @@
-<x-app-layout>
+@extends('layouts.app')
 
-<div class="container-fluid">
+@section('content')
 
-<div class="row">
-
-    {{-- SIDEBAR --}}
-
-    <div class="col-lg-2 sidebar">
-
-        <h3 class="logo">
-            🌍 PortWatch AI
-        </h3>
-
-        <ul class="menu">
-
-            <li class="active">
-                <i class="bi bi-grid"></i>
-                Dashboard
-            </li>
-
-            <li>
-                <i class="bi bi-globe2"></i>
-                Country
-            </li>
-
-            <li>
-                <i class="bi bi-cloud-sun"></i>
-                Weather
-            </li>
-
-            <li>
-                <i class="bi bi-currency-exchange"></i>
-                Currency
-            </li>
-
-            <li>
-                <i class="bi bi-newspaper"></i>
-                News
-            </li>
-
-            <li>
-                <i class="bi bi-truck"></i>
-                Ports
-            </li>
-
-            <li>
-                <i class="bi bi-graph-up"></i>
-                Analytics
-            </li>
-
-            <li>
-                <i class="bi bi-star"></i>
-                Watchlist
-            </li>
-
-        </ul>
-
-    </div>
-
-    {{-- CONTENT --}}
-
-    <div class="col-lg-10">
 
         <div class="topbar">
 
@@ -77,6 +18,7 @@
 
         </div>
 
+
         <div class="hero-dashboard">
 
             <div class="overlay"></div>
@@ -84,22 +26,56 @@
             <div class="hero-content">
 
                 <h1>
-                    Global Logistics Dashboard
-                </h1>
 
-                <p>
+Global Supply Chain Risk Intelligence
 
-                    Monitor worldwide shipment,
-                    weather,
-                    exchange rate,
-                    logistics news
-                    and supply chain.
+</h1>
 
-                </p>
+<p>
+
+Monitor weather, economy, ports, logistics,
+exchange rates, and AI-powered risk analysis
+for global import & export decisions.
+
+</p>
 
             </div>
 
         </div>
+
+        <div class="row mt-3">
+
+    <div class="col-md-6">
+
+        <div class="dashboard-widget">
+
+            <label class="mb-2 fw-bold">
+                🌍 Select Country
+            </label>
+
+            <select
+                id="countrySelect"
+                class="form-select">
+
+                <option value="">Choose Country</option>
+
+                @foreach($countries as $country)
+
+                    <option value="{{ $country->code }}">
+
+                        {{ $country->name }}
+
+                    </option>
+
+                @endforeach
+
+            </select>
+
+        </div>
+
+    </div>
+
+</div>
 
         {{-- CARD --}}
 
@@ -109,21 +85,9 @@
 
                 <div class="info-card">
 
-                    <h5>Countries</h5>
+                    <h5>🌍 Selected Country</h5>
 
-                    <h2>195</h2>
-
-                </div>
-
-            </div>
-
-            <div class="col-md-3">
-
-                <div class="info-card">
-
-                    <h5>Shipment</h5>
-
-                    <h2>1540</h2>
+                    <h2>Indonesia</h2>
 
                 </div>
 
@@ -133,9 +97,9 @@
 
                 <div class="info-card">
 
-                    <h5>Risk</h5>
+                    <h5>🏦 GDP</h5>
 
-                    <h2>Low</h2>
+                    <h2>Loading...</h2>
 
                 </div>
 
@@ -145,12 +109,25 @@
 
                 <div class="info-card">
 
-                    <h5>Currency</h5>
+                    <h5>⚠ Risk Score</h5>
 
-                    <h2>Live</h2>
+                    <h2>Loading...</h2>
 
                 </div>
 
+            </div>
+
+            <div class="col-md-3">
+
+                <div class="info-card">
+
+                    <h5>💱 Exchange</h5>
+
+                    <h2>Loading...</h2>
+
+                </div>
+
+            </div>
             </div>
             {{-- MAP + WEATHER --}}
 
@@ -401,13 +378,8 @@
 
     </div>
 
-</div>
-        </div>
 
-    </div>
 
 </div>
+@endsection
 
-</div>
-
-</x-app-layout>
