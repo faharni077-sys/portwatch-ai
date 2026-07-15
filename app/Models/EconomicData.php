@@ -6,5 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class EconomicData extends Model
 {
-    //
+    protected $fillable = [
+        'country_id',
+        'gdp',
+        'inflation',
+        'export',
+        'import',
+        'year',
+    ];
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
 }

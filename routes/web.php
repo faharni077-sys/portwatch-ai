@@ -39,4 +39,50 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
+// ============================================================
+// ADMIN ROUTES — protected by auth + admin middleware
+// ============================================================
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\PortAdminController;
+use App\Http\Controllers\Admin\ArticleController as AdminArticleController;
+use App\Http\Controllers\Admin\WatchlistAdminController;
+
+Route::prefix('admin')
+    ->middleware(['auth', 'admin'])
+    ->name('admin.')
+    ->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])
+        ->name('dashboard');
+
+    // Kelola User
+    Route::get('/users',              [AdminUserController::class, 'index'])->name('users.index');
+    Route::get('/users/create',       [AdminUserController::class, 'create'])->name('users.create');
+    Route::post('/users',             [AdminUserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit',  [AdminUserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}',       [AdminUserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}',    [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+    // Kelola Dataset Pelabuhan
+    Route::get('/ports',              [PortAdminController::class, 'index'])->name('ports.index');
+    Route::get('/ports/create',       [PortAdminController::class, 'create'])->name('ports.create');
+    Route::post('/ports',             [PortAdminController::class, 'store'])->name('ports.store');
+    Route::get('/ports/{port}/edit',  [PortAdminController::class, 'edit'])->name('ports.edit');
+    Route::put('/ports/{port}',       [PortAdminController::class, 'update'])->name('ports.update');
+    Route::delete('/ports/{port}',    [PortAdminController::class, 'destroy'])->name('ports.destroy');
+
+    // Kelola Artikel Analisis
+    Route::get('/articles',                 [AdminArticleController::class, 'index'])->name('articles.index');
+    Route::get('/articles/create',          [AdminArticleController::class, 'create'])->name('articles.create');
+    Route::post('/articles',                [AdminArticleController::class, 'store'])->name('articles.store');
+    Route::get('/articles/{article}/edit',  [AdminArticleController::class, 'edit'])->name('articles.edit');
+    Route::put('/articles/{article}',       [AdminArticleController::class, 'update'])->name('articles.update');
+    Route::delete('/articles/{article}',    [AdminArticleController::class, 'destroy'])->name('articles.destroy');
+
+    // Lihat Watchlist Pengguna
+    Route::get('/watchlists', [WatchlistAdminController::class, 'index'])->name('watchlists.index');
+});
+
 require __DIR__.'/auth.php';

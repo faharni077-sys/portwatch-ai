@@ -10,6 +10,8 @@ use App\Models\Country;
 use App\Models\CurrencyRate;
 use App\Models\WeatherLog;
 use App\Models\RiskScore;
+use App\Models\EconomicData;
+use App\Models\SentimentResult;
 use App\Services\NewsService;
 use App\Models\NewsCache;
 use Carbon\Carbon;
@@ -100,6 +102,22 @@ if (isset($country['cca3'])) {
     $worldBank = $worldBankService->getCountryData($country['cca3']);
 }
 
+// ── P2: Cache World Bank data ke tabel economic_data ──────────────
+if ($countryDb && !empty($worldBank)) {
+    EconomicData::updateOrCreate(
+        [
+            'country_id' => $countryDb->id,
+            'year'       => (int) ($worldBank['gdp_year'] ?? date('Y')),
+        ],
+        [
+            'gdp'       => $worldBank['gdp']      ?? null,
+            'inflation' => $worldBank['inflation'] ?? null,
+            'export'    => isset($worldBank['exports']) ? (int) $worldBank['exports'] : null,
+            'import'    => isset($worldBank['imports']) ? (int) $worldBank['imports'] : null,
+        ]
+    );
+}
+
 $currency = array_key_first($country['currencies']);
 
 $exchange = $exchangeRateService->getRates($currency);
@@ -181,9 +199,9 @@ if ($totalNews > 0) {
     // Inflation Risk
     $inflationRisk = 30;
 
-    if (isset($worldBank['inflation']['value'])) {
+    if (isset($worldBank['inflation'])) {
 
-        $inflation = $worldBank['inflation']['value'];
+        $inflation = (float) $worldBank['inflation'];
 
         if ($inflation > 10)
             $inflationRisk = 80;
@@ -261,6 +279,27 @@ foreach ($articles as $article) {
         ]
 
     );
+
+    // ── P1: Simpan aggregate sentiment ke tabel sentiment_results ──
+    if ($totalNews > 0) {
+        // Tentukan overall sentiment dari nilai terbesar
+        $overallSentiment = 'Neutral';
+        if ($positive > $negative && $positive >= $neutral) {
+            $overallSentiment = 'Positive';
+        } elseif ($negative > $positive && $negative >= $neutral) {
+            $overallSentiment = 'Negative';
+        }
+
+        SentimentResult::updateOrCreate(
+            ['country_id' => $countryDb->id],
+            [
+                'positive'  => $positive,
+                'neutral'   => $neutral,
+                'negative'  => $negative,
+                'sentiment' => $overallSentiment,
+            ]
+        );
+    }
 }
 
 }
