@@ -137,7 +137,8 @@
     flex: 1;
     display: flex;
     align-items: center;
-    padding: 0 48px;
+    /* bottom padding harus lebih besar dari tinggi stats bar (≈80px) + bottom offset (48px) */
+    padding: 24px 48px 160px;
     max-width: 900px;
 }
 
@@ -217,6 +218,8 @@
     display: flex;
     gap: 32px;
     flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.08);
 }
 
 .pw-hero-stat { display: flex; flex-direction: column; gap: 2px; }
@@ -515,9 +518,23 @@
 .alert-danger { background: rgba(239,68,68,.12) !important; border-color: rgba(239,68,68,.3) !important; color: #fca5a5 !important; border-radius: 10px !important; }
 
 @media (max-width: 600px) {
-    .pw-hero-nav { padding: 20px 20px; }
-    .pw-hero-content { padding: 0 20px; }
-    .pw-hero-stats { left: 20px; right: 20px; bottom: 80px; gap: 20px; }
+    .pw-hero-nav { padding: 20px; }
+    /* di mobile, stats tidak bisa absolute karena layar terlalu pendek */
+    .pw-hero-content { padding: 40px 20px 40px; align-items: flex-start; }
+    .pw-hero-stats {
+        position: static;
+        padding: 24px 20px;
+        border-top: 1px solid rgba(255,255,255,.08);
+        gap: 20px;
+    }
+    .pw-scroll-hint { display: none; }
     .pw-section { padding: 60px 20px; }
     .pw-footer { padding: 30px 20px; }
+}
+
+@media (min-width: 601px) and (max-width: 991px) {
+    .pw-hero-content { padding: 24px 32px 180px; max-width: 100%; }
+    .pw-hero-stats { left: 32px; right: 32px; bottom: 40px; gap: 24px; }
+    .pw-scroll-hint { right: 32px; }
+    .pw-section { padding: 72px 32px; }
 }

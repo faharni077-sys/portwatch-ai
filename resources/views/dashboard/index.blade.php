@@ -384,22 +384,63 @@ async function runAnalysis() {
             addEvent(`Currency synced — 1 ${baseCurrency} = ${typeof usd === 'number' ? usd.toFixed(4) : usd} USD`);
         }
 
-        // GDP / Inflation placeholder from country DB
-        fetch(`/country/${code}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-            .catch(() => {});
+        // GDP / Inflation from World Bank API (async, non-blocking)
+        const iso3 = ci.cca3 ?? code;
 
-        // Rough risk calculation (no inflation data from quick fetch, use 0)
+        // Initial risk with weather + currency (inflasi menyusul)
         const risk = calcRisk(weather, 0, rateData, 'Neutral');
         document.getElementById('riskVal').textContent = risk.total;
         document.getElementById('riskVal').style.color = riskColor(risk.level);
         document.getElementById('riskLevel').textContent = risk.level + ' RISK';
         document.getElementById('riskLevel').style.color = riskColor(risk.level);
-        addEvent(`Risk score calculated — ${risk.total} (${risk.level})`, risk.level === 'HIGH' ? 'warn' : 'ok');
+        addEvent(`Risk score dihitung — ${risk.total} (${risk.level})`, risk.level === 'HIGH' ? 'warn' : 'ok');
 
-        // GDP/Inflation placeholder
-        document.getElementById('gdpVal').textContent = '—';
-        document.getElementById('inflationVal').textContent = '—';
-        document.getElementById('gdpYear').textContent = 'World Bank · See Analytics';
+        document.getElementById('gdpVal').textContent = '...';
+        document.getElementById('inflationVal').textContent = '...';
+        document.getElementById('gdpYear').textContent = 'Memuat World Bank...';
+
+        fetch(`https://api.worldbank.org/v2/country/${iso3}/indicator/NY.GDP.MKTP.CD?format=json&per_page=3`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                const rows = d?.[1]?.filter(x => x.value !== null) ?? [];
+                if (rows[0]) {
+                    const gdp = (rows[0].value / 1e12).toFixed(2);
+                    document.getElementById('gdpVal').textContent = '$' + gdp + 'T';
+                    document.getElementById('gdpYear').textContent = 'World Bank · ' + rows[0].date;
+                } else {
+                    document.getElementById('gdpVal').textContent = '—';
+                    document.getElementById('gdpYear').textContent = 'World Bank';
+                }
+            })
+            .catch(() => {
+                document.getElementById('gdpVal').textContent = '—';
+                document.getElementById('gdpYear').textContent = 'World Bank';
+            });
+
+        fetch(`https://api.worldbank.org/v2/country/${iso3}/indicator/FP.CPI.TOTL.ZG?format=json&per_page=3`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                const rows = d?.[1]?.filter(x => x.value !== null) ?? [];
+                if (rows[0]) {
+                    const inf = rows[0].value.toFixed(2);
+                    document.getElementById('inflationVal').textContent = inf + '%';
+                    document.getElementById('inflationYear').textContent = 'CPI · ' + rows[0].date;
+                    // Perbarui risk score dengan data inflasi nyata
+                    const risk2 = calcRisk(weather, rows[0].value, rateData, 'Neutral');
+                    document.getElementById('riskVal').textContent = risk2.total;
+                    document.getElementById('riskVal').style.color = riskColor(risk2.level);
+                    document.getElementById('riskLevel').textContent = risk2.level + ' RISK';
+                    document.getElementById('riskLevel').style.color = riskColor(risk2.level);
+                    addEvent(`Risk diperbarui dengan data inflasi — ${risk2.total} (${risk2.level})`, risk2.level === 'HIGH' ? 'warn' : 'ok');
+                } else {
+                    document.getElementById('inflationVal').textContent = '—';
+                    document.getElementById('inflationYear').textContent = 'CPI %';
+                }
+            })
+            .catch(() => {
+                document.getElementById('inflationVal').textContent = '—';
+                document.getElementById('inflationYear').textContent = 'CPI %';
+            });
 
         // AI Recommendation
         const recs = {

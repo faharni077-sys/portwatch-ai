@@ -52,8 +52,8 @@
                 <i class="bi bi-shield-{{ $riskLevel === 'LOW' ? 'check' : ($riskLevel === 'HIGH' ? 'exclamation' : 'half') }}"></i>
                 {{ $riskLevel }} RISK
             </div>
-            <a href="{{ route('countries.index') }}" class="btn-pw-outline" style="text-decoration:none;display:flex;align-items:center;gap:6px;font-size:13px;">
-                <i class="bi bi-star"></i> Add to Watchlist
+            <a href="{{ route('watchlist') }}" class="btn-pw-outline" style="text-decoration:none;display:flex;align-items:center;gap:6px;font-size:13px;">
+                <i class="bi bi-star"></i> Tambah ke Watchlist
             </a>
         </div>
     </div>
