@@ -163,30 +163,30 @@ async function fetchNews() {
     document.getElementById('newsLoading').style.display = 'block';
     document.getElementById('newsResults').style.display = 'none';
 
-    // Use GNews-formatted URL — if GNEWS_API_KEY not set, show sample data
     const apiKey = '{{ env("GNEWS_API_KEY", "") }}';
 
     if (!apiKey) {
-        // Show sample data for demo
         allArticles = getSampleArticles(query);
         renderNews(allArticles);
         return;
     }
 
     try {
-        const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query + ' ' + category)}&lang=en&max=10&apikey=${apiKey}`;
+        const q   = encodeURIComponent(query + ' ' + category);
+        const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=10&apikey=${apiKey}`;
         const r   = await fetch(url);
         if (!r.ok) throw new Error();
         const data = await r.json();
         allArticles = (data.articles ?? []).map(a => ({
-            title: a.title,
+            title:       a.title,
             description: a.description ?? '',
-            source: a.source?.name ?? '—',
-            url: a.url,
+            source:      a.source?.name ?? '—',
+            url:         a.url,
+            image:       a.image ?? null,
             publishedAt: a.publishedAt,
         }));
         renderNews(allArticles);
-    } catch(e) {
+    } catch (e) {
         allArticles = getSampleArticles(query);
         renderNews(allArticles);
     }
@@ -223,29 +223,44 @@ function renderNews(articles) {
                           result.sentiment === 'Negative' ? '#ef4444' : '#f59e0b';
         const sentIcon  = result.sentiment === 'Positive' ? '↑' :
                           result.sentiment === 'Negative' ? '↓' : '→';
+        const sentLabel = result.sentiment.toUpperCase();
+
+        /* ── tanggal ── */
+        let dateStr = '—';
+        if (a.publishedAt) {
+            try {
+                dateStr = new Date(a.publishedAt).toLocaleDateString('id-ID', {
+                    day: '2-digit', month: 'short', year: 'numeric'
+                });
+            } catch (e) { dateStr = a.publishedAt.slice(0, 10); }
+        }
+
+        /* ── thumbnail ── */
+        const imgHtml = a.image
+            ? `<a href="${a.url}" target="_blank" rel="noopener" class="pw-nc-thumb-wrap">
+                   <img src="${a.image}" class="pw-nc-thumb"
+                        onerror="this.closest('.pw-nc-thumb-wrap').style.display='none'" alt="">
+               </a>`
+            : '';
 
         const el = document.createElement('div');
-        el.className = 'pw-news-item mb-2';
+        el.className = 'pw-news-card';
         el.innerHTML = `
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-                <div style="flex:1;">
-                    <div class="pw-news-title">
-                        <a href="${a.url ?? '#'}" target="_blank" style="color:#fff;text-decoration:none;">
-                            ${a.title}
-                        </a>
-                    </div>
-                    <div style="font-size:12px;color:var(--pw-text-dim);margin-top:4px;line-height:1.5;">
-                        ${a.description ? a.description.slice(0, 120) + '...' : ''}
-                    </div>
-                    <div class="pw-news-meta mt-2">
-                        <span style="color:var(--pw-text-dim);"><i class="bi bi-rss me-1"></i>${a.source}</span>
-                        &nbsp;·&nbsp;
-                        <span>${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-GB') : '—'}</span>
-                    </div>
+            ${imgHtml}
+            <div class="pw-nc-body">
+                <div class="pw-nc-sentiment" style="background:${sentColor}22;border-color:${sentColor}44;color:${sentColor};">
+                    ${sentIcon} ${sentLabel}
                 </div>
-                <div style="flex-shrink:0;text-align:center;padding:6px 12px;background:${sentColor}22;border:1px solid ${sentColor}44;border-radius:8px;">
-                    <div style="font-size:18px;font-weight:800;color:${sentColor};">${sentIcon}</div>
-                    <div style="font-size:10px;color:${sentColor};font-family:'JetBrains Mono',monospace;">${result.sentiment.toUpperCase()}</div>
+                <a href="${a.url}" target="_blank" rel="noopener" class="pw-nc-title">
+                    ${a.title}
+                </a>
+                <p class="pw-nc-desc">${a.description ? a.description.slice(0, 160) + (a.description.length > 160 ? '…' : '') : ''}</p>
+                <div class="pw-nc-meta">
+                    <span><i class="bi bi-rss" style="color:var(--pw-cyan);"></i> ${a.source}</span>
+                    <span><i class="bi bi-calendar3" style="color:var(--pw-text-dim);"></i> ${dateStr}</span>
+                    <a href="${a.url}" target="_blank" rel="noopener" class="pw-nc-read">
+                        Baca selengkapnya <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
                 </div>
             </div>
         `;
@@ -304,12 +319,13 @@ function renderSentimentChart(pos, neu, neg) {
 }
 
 function getSampleArticles(q) {
+    const placeholder = 'https://placehold.co/480x240/0b1929/29c5ff?text=PortWatch+AI';
     return [
-        { title: `Global ${q} sector sees record growth in Q3`, description: 'Exports and trade volumes increased significantly driven by strong demand.', source: 'Reuters', url: '#', publishedAt: new Date().toISOString() },
-        { title: `Supply chain disruptions impact ${q} operations`, description: 'Port congestion and shipping delays cause significant delays across the network.', source: 'Bloomberg', url: '#', publishedAt: new Date().toISOString() },
-        { title: `${q} inflation concerns rise amid currency crisis`, description: 'Economic sanctions and currency volatility create uncertainty for trade partners.', source: 'FT', url: '#', publishedAt: new Date().toISOString() },
-        { title: `${q} trade agreement boosts export confidence`, description: 'New bilateral agreement improves market access and reduces tariff barriers.', source: 'WSJ', url: '#', publishedAt: new Date().toISOString() },
-        { title: `Shipping costs stabilize after months of disruption`, description: 'Freight rates improve as major ports recover from congestion backlog.', source: 'Cargo Journal', url: '#', publishedAt: new Date().toISOString() },
+        { title: `Global ${q} sector sees record growth in Q3`, description: 'Exports and trade volumes increased significantly driven by strong demand across major shipping corridors.', source: 'Reuters', url: '#', image: placeholder, publishedAt: new Date().toISOString() },
+        { title: `Supply chain disruptions impact ${q} operations`, description: 'Port congestion and shipping delays cause significant backlog across the global logistics network.', source: 'Bloomberg', url: '#', image: placeholder, publishedAt: new Date(Date.now() - 3600000).toISOString() },
+        { title: `${q} inflation concerns rise amid currency volatility`, description: 'Economic sanctions and currency fluctuations create uncertainty for international trade partners.', source: 'Financial Times', url: '#', image: null, publishedAt: new Date(Date.now() - 7200000).toISOString() },
+        { title: `${q} trade agreement boosts export confidence`, description: 'New bilateral agreement improves market access and reduces tariff barriers for major export commodities.', source: 'WSJ', url: '#', image: placeholder, publishedAt: new Date(Date.now() - 10800000).toISOString() },
+        { title: `Shipping costs stabilize after months of disruption`, description: 'Freight rates improve as major ports recover from congestion backlog and vessel supply normalises.', source: 'Cargo Journal', url: '#', image: null, publishedAt: new Date(Date.now() - 14400000).toISOString() },
     ];
 }
 
@@ -329,5 +345,119 @@ document.getElementById('sentimentFilter').addEventListener('change', () => {
     font-size: 12px; cursor: pointer; transition: .2s;
 }
 .pw-quick-btn:hover { border-color: var(--pw-border2); color: var(--pw-cyan); }
+
+/* ── News Card ── */
+.pw-news-card {
+    display: flex;
+    gap: 0;
+    background: var(--pw-bg2);
+    border: 1px solid var(--pw-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    transition: .22s ease;
+}
+.pw-news-card:hover {
+    border-color: var(--pw-border2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+
+/* thumbnail */
+.pw-nc-thumb-wrap {
+    flex-shrink: 0;
+    width: 160px;
+    display: block;
+    overflow: hidden;
+}
+.pw-nc-thumb {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .3s ease;
+}
+.pw-news-card:hover .pw-nc-thumb { transform: scale(1.04); }
+
+/* body */
+.pw-nc-body {
+    flex: 1;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* sentiment badge */
+.pw-nc-sentiment {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+}
+
+/* title */
+.pw-nc-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    text-decoration: none;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.pw-nc-title:hover { color: var(--pw-cyan); }
+
+/* description */
+.pw-nc-desc {
+    font-size: 13px;
+    color: var(--pw-text-dim);
+    line-height: 1.6;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* meta row */
+.pw-nc-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--pw-text-dim);
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--pw-border);
+}
+.pw-nc-meta span { display: flex; align-items: center; gap: 5px; }
+.pw-nc-read {
+    margin-left: auto;
+    color: var(--pw-cyan);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: .2s;
+}
+.pw-nc-read:hover { color: #7dd3fd; }
+
+@media (max-width: 600px) {
+    .pw-nc-thumb-wrap { display: none; }
+    .pw-nc-body { padding: 14px; }
+}
 </style>
 @endsection

@@ -248,6 +248,7 @@ foreach ($articles as $article) {
         [
             'country_id'   => $countryDb->id,
             'title'        => $article['title'],
+            'description'  => $article['description'] ?? null,
             'source'       => $article['source']['name'] ?? '-',
             'published_at' => date(
     'Y-m-d H:i:s',

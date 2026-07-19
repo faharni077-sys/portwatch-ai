@@ -11,10 +11,11 @@ class NewsCache extends Model
     protected $fillable = [
         'country_id',
         'title',
+        'description',
         'source',
         'url',
         'published_at',
-        'sentiment'
+        'sentiment',
     ];
 
     public function country()

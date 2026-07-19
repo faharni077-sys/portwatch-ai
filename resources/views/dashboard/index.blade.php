@@ -458,49 +458,116 @@ async function runAnalysis() {
     // Load ports for this country
     loadPorts(code);
 
-    // News feed (simulated from timeline)
-    renderNewsFeed(name, code);
+    // News feed — GNews API
+    await renderNewsFeed(name, code);
 
     document.getElementById('analysisStatus').textContent = 'ACTIVE';
     addEvent(`Intelligence sync complete for <strong style="color:var(--pw-green)">${name}</strong>. System fully operational.`, 'ok');
 }
 
-// ---- News Feed ----
-function renderNewsFeed(country, code) {
+// ---- News Feed — GNews API (sinkron dengan halaman News Intelligence) ----
+async function renderNewsFeed(country, code) {
     const feed = document.getElementById('newsFeed');
-    const topics = ['logistics disruption', 'export volume', 'port congestion', 'currency stability', 'inflation report'];
+    feed.innerHTML = `<div style="color:var(--pw-text-dim);font-size:12px;padding:16px;text-align:center;font-family:'JetBrains Mono',monospace;">
+        <span class="dot-pulse" style="display:inline-block;margin-right:6px;"></span>MEMUAT BERITA ${country.toUpperCase()}...
+    </div>`;
+
+    const apiKey = '{{ env("GNEWS_API_KEY", "") }}';
+    let articles  = [];
+
+    if (apiKey) {
+        try {
+            const q   = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
+            const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&apikey=${apiKey}`;
+            const r   = await fetch(url);
+            if (r.ok) {
+                const data = await r.json();
+                articles = (data.articles ?? []).map(a => ({
+                    title:       a.title,
+                    description: a.description ?? '',
+                    source:      a.source?.name ?? '—',
+                    url:         a.url,
+                    image:       a.image ?? null,
+                    publishedAt: a.publishedAt,
+                }));
+            }
+        } catch (e) { /* fallback ke dummy */ }
+    }
+
+    /* fallback jika API tidak tersedia */
+    if (!articles.length) {
+        articles = [
+            { title: `${country} trade route analysis updated`, description: 'Market conditions and logistics assessment for the selected region.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date().toISOString() },
+            { title: `${country} supply chain risk report`, description: 'Current port operations and shipping status in the region.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date(Date.now()-3600000).toISOString() },
+            { title: `${country} currency and inflation update`, description: 'Economic indicators impacting import and export costs.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date(Date.now()-7200000).toISOString() },
+        ];
+    }
+
+    /* Analisis sentimen setiap artikel */
+    const POS_W = ['growth','increase','success','profit','safe','stable','recover','improve','peace','surge','gain','boost','strong','rise','expand','agreement','deal','positive','record'];
+    const NEG_W = ['war','conflict','crisis','attack','risk','inflation','terror','disaster','decline','sanction','shortage','delay','strike','protest','collapse','ban','tariff','drop','fall','loss','flood','storm','disruption'];
+
+    function quickAnalyze(text) {
+        const t = text.toLowerCase();
+        const p = POS_W.filter(w => t.includes(w)).length;
+        const n = NEG_W.filter(w => t.includes(w)).length;
+        if (p > n) return 'Positive';
+        if (n > p) return 'Negative';
+        return 'Neutral';
+    }
+
     feed.innerHTML = '';
 
-    // Show link to News page with pre-filled context
-    const items = [
-        { title: `${country} trade route analysis updated`, sentiment: 'Positive', time: '2m ago' },
-        { title: `${country} logistics infrastructure assessment`, sentiment: 'Neutral', time: '8m ago' },
-        { title: `Supply chain update: ${country} port operations`, sentiment: 'Positive', time: '15m ago' },
-    ];
+    articles.slice(0, 4).forEach(a => {
+        const sentiment  = quickAnalyze(a.title + ' ' + a.description);
+        const sentColor  = sentiment === 'Positive' ? '#22c55e' : sentiment === 'Negative' ? '#ef4444' : '#f59e0b';
+        const sentIcon   = sentiment === 'Positive' ? '↑' : sentiment === 'Negative' ? '↓' : '→';
+        const articleUrl = (a.url && a.url !== '#') ? a.url : '/news';
+        const isExternal = a.url && a.url !== '#' && a.url !== '/news';
 
-    items.forEach(item => {
-        const sentClass = item.sentiment === 'Positive' ? 'sentiment-positive' :
-                          item.sentiment === 'Negative' ? 'sentiment-negative' : 'sentiment-neutral';
-        const el = document.createElement('div');
-        el.className = 'pw-news-item';
+        let dateStr = '';
+        try {
+            const d = new Date(a.publishedAt);
+            dateStr = d.toLocaleDateString('id-ID', { day:'2-digit', month:'short' });
+        } catch(e) {}
+
+        const thumbHtml = a.image
+            ? `<img src="${a.image}" style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);" onerror="this.style.display='none'" alt="">`
+            : `<div style="width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-newspaper" style="color:var(--pw-border2);font-size:18px;"></i></div>`;
+
+        const el = document.createElement('a');
+        el.href   = articleUrl;
+        el.target = isExternal ? '_blank' : '_self';
+        if (isExternal) el.rel = 'noopener';
+        el.className = 'pw-live-intel-item';
         el.innerHTML = `
-            <div class="pw-news-title">${item.title}</div>
-            <div class="pw-news-meta">
-                <span class="${sentClass}">⬤ ${item.sentiment}</span>
-                &nbsp;·&nbsp; ${item.time}
+            ${thumbHtml}
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:#fff;line-height:1.4;
+                            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+                            margin-bottom:5px;">${a.title}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;
+                                 color:${sentColor};background:${sentColor}18;border:1px solid ${sentColor}33;
+                                 padding:1px 7px;border-radius:10px;">${sentIcon} ${sentiment.toUpperCase()}</span>
+                    <span style="font-size:10px;color:var(--pw-text-dim);">${a.source}</span>
+                    ${dateStr ? `<span style="font-size:10px;color:var(--pw-text-dim);margin-left:auto;">${dateStr}</span>` : ''}
+                </div>
             </div>
         `;
         feed.appendChild(el);
     });
 
+    /* link ke halaman News */
     const linkEl = document.createElement('div');
-    linkEl.style.cssText = 'text-align:center;padding:12px;';
-    linkEl.innerHTML = `<a href="/news" class="pw-auth-link" style="font-size:12px;">
-        <i class="bi bi-arrow-right me-1"></i>View Full News Intelligence
+    linkEl.style.cssText = 'text-align:center;padding:10px 12px;border-top:1px solid var(--pw-border);margin-top:4px;';
+    linkEl.innerHTML = `<a href="/news" style="font-size:12px;color:var(--pw-cyan);text-decoration:none;font-weight:600;">
+        <i class="bi bi-arrow-right me-1"></i>Lihat Semua Berita Intelligence
     </a>`;
     feed.appendChild(linkEl);
 
-    document.getElementById('newsCount').textContent = items.length + ' NEW';
+    document.getElementById('newsCount').textContent = articles.length + ' BARU';
+    addEvent(`Berita intelligence dimuat untuk <strong style="color:var(--pw-cyan)">${country}</strong> — ${articles.length} artikel`, 'info');
 }
 </script>
 
@@ -576,6 +643,20 @@ function renderNewsFeed(country, code) {
 }
 .pw-mini-card .pw-card-label { font-size: 9px; letter-spacing: 1.5px; }
 .pw-mini-card .pw-card-value { font-size: 20px; }
+
+/* Live Intelligence feed item */
+.pw-live-intel-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--pw-border);
+    text-decoration: none;
+    transition: background .18s ease;
+    cursor: pointer;
+}
+.pw-live-intel-item:last-of-type { border-bottom: none; }
+.pw-live-intel-item:hover { background: rgba(41,197,255,.05); }
 
 @media (max-width: 1100px) {
     .pw-hud-grid { grid-template-columns: 1fr; }
