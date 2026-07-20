@@ -6,20 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
-{
-    Schema::table('news_cache', function (Blueprint $table) {
-        $table->string('sentiment')->nullable()->after('published_at');
-    });
-}
+    {
+        if (!Schema::hasColumn('news_cache', 'sentiment')) {
 
-public function down(): void
-{
-    Schema::table('news_cache', function (Blueprint $table) {
-        $table->dropColumn('sentiment');
-    });
-}
+            Schema::table('news_cache', function (Blueprint $table) {
+                $table->string('sentiment')->nullable()->after('published_at');
+            });
+
+        }
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasColumn('news_cache', 'sentiment')) {
+
+            Schema::table('news_cache', function (Blueprint $table) {
+                $table->dropColumn('sentiment');
+            });
+
+        }
+    }
 };
