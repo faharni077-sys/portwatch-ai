@@ -18,16 +18,26 @@ class WatchlistAdminController extends Controller
         }
 
         if ($request->filled('search')) {
-            $query->whereHas('user', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search . '%');
-            })->orWhereHas('country', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search . '%');
+            $query->where(function ($q) use ($request) {
+                $q->whereHas('user', function ($q2) use ($request) {
+                    $q2->where('name', 'like', '%' . $request->search . '%');
+                })
+                ->orWhere('country_name', 'like', '%' . $request->search . '%')
+                ->orWhere('country_code', 'like', '%' . $request->search . '%');
             });
         }
 
         $watchlists = $query->latest()->paginate(20)->withQueryString();
         $users      = User::where('role', 'user')->orderBy('name')->get();
 
-        return view('admin.watchlists.index', compact('watchlists', 'users'));
+        // Stats
+        $allWatchlists = Watchlist::when($request->filled('user_id'), fn($q) => $q->where('user_id', $request->user_id));
+        $stats = [
+            'high'   => (clone $allWatchlists)->where('priority', 'HIGH')->count(),
+            'medium' => (clone $allWatchlists)->where('priority', 'MEDIUM')->count(),
+            'low'    => (clone $allWatchlists)->where('priority', 'LOW')->count(),
+        ];
+
+        return view('admin.watchlists.index', compact('watchlists', 'users', 'stats'));
     }
 }

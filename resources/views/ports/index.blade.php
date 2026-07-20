@@ -93,8 +93,10 @@
 <script>
 const portMap = L.map('portMap').setView([20, 0], 2);
 
+// OpenStreetMap — tile standar, warna abu-abu terang
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 18
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
 }).addTo(portMap);
 
 portMap.on('mousemove', e => {
@@ -104,15 +106,13 @@ portMap.on('mousemove', e => {
 
 const portIcon = L.divIcon({
     className: '',
-    html: `<div style="
-        width:10px;height:10px;
-        background:#29c5ff;
-        border-radius:50%;
-        border:2px solid rgba(41,197,255,.35);
-        box-shadow:0 0 8px rgba(41,197,255,.5);
-        cursor:pointer;
-    "></div>`,
-    iconSize: [10, 10], iconAnchor: [5, 5]
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#29c5ff" style="display:block;opacity:.85;">
+        <path d="M20 21c-2.5 0-5-1-7.5-1S8 21 5.5 21 3 20 3 20l1-7h16l1 7s-.5 1-1 1z"/>
+        <path d="M12 3v10M8 7l4-4 4 4" stroke="#29c5ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`,
+    iconSize:    [14, 14],
+    iconAnchor:  [7, 7],
+    popupAnchor: [0, -8]
 });
 
 let markers = [];

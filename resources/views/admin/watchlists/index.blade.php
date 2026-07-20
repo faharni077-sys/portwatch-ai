@@ -45,25 +45,39 @@
 
 {{-- Stats row --}}
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="adm-stat-card">
             <div class="adm-stat-label"><i class="bi bi-bookmark-star me-1"></i>TOTAL WATCHLIST</div>
             <div class="adm-stat-value" style="color:#f59e0b;">{{ $watchlists->total() }}</div>
             <div class="adm-stat-sub">Entri aktif dari semua user</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="adm-stat-card">
             <div class="adm-stat-label"><i class="bi bi-people me-1"></i>USER DENGAN WATCHLIST</div>
-            <div class="adm-stat-value text-cyan">{{ $users->count() }}</div>
+            <div class="adm-stat-value text-cyan">{{ $watchlists->pluck('user_id')->unique()->count() }}</div>
             <div class="adm-stat-sub">User aktif memantau</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-2">
         <div class="adm-stat-card">
-            <div class="adm-stat-label"><i class="bi bi-globe2 me-1"></i>HALAMAN</div>
-            <div class="adm-stat-value" style="color:var(--pw-green);">{{ $watchlists->lastPage() }}</div>
-            <div class="adm-stat-sub">Total halaman data</div>
+            <div class="adm-stat-label"><i class="bi bi-exclamation-triangle me-1"></i>HIGH PRIORITY</div>
+            <div class="adm-stat-value" style="color:var(--pw-red);">{{ $stats['high'] }}</div>
+            <div class="adm-stat-sub">Entri kritikal</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="adm-stat-card">
+            <div class="adm-stat-label"><i class="bi bi-dash-circle me-1"></i>MEDIUM PRIORITY</div>
+            <div class="adm-stat-value" style="color:var(--pw-amber);">{{ $stats['medium'] }}</div>
+            <div class="adm-stat-sub">Entri sedang</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="adm-stat-card">
+            <div class="adm-stat-label"><i class="bi bi-check-circle me-1"></i>LOW PRIORITY</div>
+            <div class="adm-stat-value" style="color:var(--pw-green);">{{ $stats['low'] }}</div>
+            <div class="adm-stat-sub">Entri rendah</div>
         </div>
     </div>
 </div>
@@ -93,6 +107,7 @@
                     <th>EMAIL</th>
                     <th>NEGARA DIPANTAU</th>
                     <th>KODE</th>
+                    <th>PRIORITY</th>
                     <th>DITAMBAHKAN</th>
                 </tr>
             </thead>
@@ -112,11 +127,27 @@
                     </td>
                     <td>
                         <div style="color:var(--pw-cyan);font-weight:600;">
-                            {{ $wl->country?->name ?? '—' }}
+                            {{-- Use denormalized column first, fall back to relation --}}
+                            {{ $wl->country_name ?? $wl->country?->name ?? '—' }}
                         </div>
                     </td>
                     <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--pw-text-dim);">
-                        {{ $wl->country?->code ?? '—' }}
+                        {{ $wl->country_code ?? $wl->country?->code ?? '—' }}
+                    </td>
+                    <td>
+                        @php
+                            $prioColor = match($wl->priority ?? 'MEDIUM') {
+                                'HIGH'   => '#ef4444',
+                                'MEDIUM' => '#f59e0b',
+                                'LOW'    => '#22c55e',
+                                default  => '#f59e0b',
+                            };
+                        @endphp
+                        <span style="
+                            padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700;
+                            font-family:'JetBrains Mono',monospace;letter-spacing:1px;
+                            background:{{ $prioColor }}22;color:{{ $prioColor }};border:1px solid {{ $prioColor }}44;
+                        ">{{ $wl->priority ?? 'MEDIUM' }}</span>
                     </td>
                     <td style="color:var(--pw-text-dim);font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap;">
                         {{ $wl->created_at->format('d/m/Y H:i') }}

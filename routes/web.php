@@ -5,6 +5,7 @@ use App\Http\Controllers\CountryController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PortController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\WatchlistController;
 
 
 
@@ -35,6 +36,12 @@ Route::middleware(['auth'])->group(function () {
     Route::view('/analytics', 'analytics')->name('analytics');
     Route::view('/compare', 'compare')->name('compare');
     Route::view('/watchlist', 'watchlist')->name('watchlist');
+
+    // Watchlist API — CRUD endpoints (database-backed)
+    Route::get('/api/watchlist',                    [WatchlistController::class, 'index']);
+    Route::post('/api/watchlist',                   [WatchlistController::class, 'store']);
+    Route::delete('/api/watchlist/{id}',            [WatchlistController::class, 'destroy']);
+    Route::patch('/api/watchlist/{id}/priority',    [WatchlistController::class, 'updatePriority']);
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

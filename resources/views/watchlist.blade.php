@@ -80,14 +80,15 @@
     </div>
 </div>
 
-{{-- Watchlist grid --}}
-<div id="watchlistGrid" class="row g-3">
-    <div id="watchlistEmpty" style="text-align:center;padding:80px;color:var(--pw-text-dim);width:100%;">
-        <i class="bi bi-bookmark-star" style="font-size:48px;display:block;margin-bottom:16px;color:var(--pw-border);"></i>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;margin-bottom:8px;">NO COUNTRIES MONITORED</div>
-        <div style="font-size:13px;">Add a country above to begin monitoring.</div>
-    </div>
+{{-- Empty state — lives OUTSIDE the grid so innerHTML rewrites never destroy it --}}
+<div id="watchlistEmpty" style="text-align:center;padding:80px;color:var(--pw-text-dim);width:100%;display:block;">
+    <i class="bi bi-bookmark-star" style="font-size:48px;display:block;margin-bottom:16px;color:var(--pw-border);"></i>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:13px;margin-bottom:8px;">NO COUNTRIES MONITORED</div>
+    <div style="font-size:13px;">Add a country above to begin monitoring.</div>
 </div>
+
+{{-- Watchlist grid — only card columns are injected here --}}
+<div id="watchlistGrid" class="row g-3"></div>
 
 {{-- Alert toast --}}
 <div id="toastBox" style="
@@ -107,12 +108,22 @@
 
 @section('scripts')
 <script>
-let watchlist = JSON.parse(localStorage.getItem('pw_watchlist') ?? '[]');
+// ================================================================
+// PORTWATCH AI — Watchlist Engine (Database-backed)
+// ================================================================
 
-function save() {
-    localStorage.setItem('pw_watchlist', JSON.stringify(watchlist));
-    updateStats();
-    renderWatchlist();
+// CSRF token — required for POST/DELETE/PATCH
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+let watchlist = []; // In-memory state (source of truth = database)
+
+// ---- Helpers ----
+function csrfHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': CSRF,
+    };
 }
 
 function updateStats() {
@@ -122,72 +133,172 @@ function updateStats() {
     document.getElementById('lowCount').textContent   = watchlist.filter(w => w.priority === 'LOW').length;
 }
 
-function addToWatchlist() {
-    const name = document.getElementById('watchCountryName').value.trim();
-    const code = document.getElementById('watchCountryCode').value.trim().toUpperCase();
+// ---- Load from database on page init ----
+async function loadWatchlist() {
+    try {
+        const res  = await fetch('/api/watchlist', { headers: { 'Accept': 'application/json' } });
+        const data = await res.json();
+        watchlist  = Array.isArray(data) ? data : [];
+        updateStats();
+        renderWatchlist();
+    } catch (e) {
+        console.error('Gagal memuat watchlist:', e);
+    }
+}
+
+// ---- Add country to watchlist ----
+async function addToWatchlist() {
+    const name     = document.getElementById('watchCountryName').value.trim();
+    const code     = document.getElementById('watchCountryCode').value.trim().toUpperCase();
     const priority = document.getElementById('watchPriority').value;
 
-    if (!name || !code) { showToast('Please enter country name and ISO2 code.'); return; }
-    if (watchlist.find(w => w.code === code)) { showToast(`${name} is already in your watchlist.`); return; }
+    if (!name || !code) { showToast('Masukkan nama negara dan kode ISO2.', true); return; }
+    if (code.length !== 2) { showToast('Kode ISO2 harus 2 huruf (contoh: ID, US, DE).', true); return; }
+    if (watchlist.find(w => w.country_code === code)) {
+        showToast(`${name} sudah ada di watchlist.`, true); return;
+    }
 
-    watchlist.push({ name, code, priority, addedAt: new Date().toISOString() });
-    save();
-    document.getElementById('watchCountryName').value = '';
-    document.getElementById('watchCountryCode').value = '';
-    showToast(`${name} added to watchlist!`);
+    try {
+        const res = await fetch('/api/watchlist', {
+            method:  'POST',
+            headers: csrfHeaders(),
+            body:    JSON.stringify({ country_name: name, country_code: code, priority }),
+        });
+
+        // Parse response body once
+        let data = {};
+        try { data = await res.json(); } catch (_) {}
+
+        if (res.status === 409) { showToast(data.message ?? `${name} sudah ada di watchlist.`, true); return; }
+        if (res.status === 422) { showToast(data.message ?? 'Data tidak valid. Periksa kode ISO2.', true); return; }
+        if (!res.ok)            { showToast(data.message ?? 'Gagal menyimpan. Coba lagi.', true); return; }
+
+        // Clear input fields immediately
+        document.getElementById('watchCountryName').value = '';
+        document.getElementById('watchCountryCode').value = '';
+
+        // Re-fetch from server for guaranteed sync, then update UI
+        await loadWatchlist();
+
+        showToast(`${data.country_name ?? name} ditambahkan ke watchlist!`);
+    } catch (e) {
+        console.error('addToWatchlist error:', e);
+        showToast('Error: ' + e.message, true);
+    }
 }
 
-function quickAdd(name, code) {
-    if (watchlist.find(w => w.code === code)) { showToast(`${name} already in watchlist.`); return; }
-    watchlist.push({ name, code, priority: 'MEDIUM', addedAt: new Date().toISOString() });
-    save();
-    showToast(`${name} added to watchlist!`);
+// ---- Quick Add button ----
+async function quickAdd(name, code) {
+    if (watchlist.find(w => w.country_code === code.toUpperCase())) {
+        showToast(`${name} sudah ada di watchlist.`, true); return;
+    }
+
+    try {
+        const res = await fetch('/api/watchlist', {
+            method:  'POST',
+            headers: csrfHeaders(),
+            body:    JSON.stringify({ country_name: name, country_code: code, priority: 'MEDIUM' }),
+        });
+
+        let data = {};
+        try { data = await res.json(); } catch (_) {}
+
+        if (res.status === 409) { showToast(data.message ?? `${name} sudah ada di watchlist.`, true); return; }
+        if (res.status === 422) { showToast(data.message ?? 'Negara tidak ditemukan di database.', true); return; }
+        if (!res.ok)            { showToast(data.message ?? 'Gagal menyimpan.', true); return; }
+
+        await loadWatchlist();
+        showToast(`${data.country_name ?? name} ditambahkan ke watchlist!`);
+    } catch (e) {
+        console.error('quickAdd error:', e);
+        showToast('Error: ' + e.message, true);
+    }
 }
 
-function removeFromWatchlist(code) {
-    watchlist = watchlist.filter(w => w.code !== code);
-    save();
-    showToast('Country removed from watchlist.');
+// ---- Remove from watchlist ----
+// NOTE: id from onclick HTML attribute arrives as a string — use Number() to match
+async function removeFromWatchlist(rawId) {
+    const id = Number(rawId);
+    try {
+        const res = await fetch(`/api/watchlist/${id}`, {
+            method:  'DELETE',
+            headers: csrfHeaders(),
+        });
+        if (!res.ok) { showToast('Gagal menghapus.', true); return; }
+
+        watchlist = watchlist.filter(w => Number(w.id) !== id);
+        updateStats();
+        renderWatchlist();
+        showToast('Negara dihapus dari watchlist.');
+    } catch (e) {
+        console.error('removeFromWatchlist error:', e);
+        showToast('Error: ' + e.message, true);
+    }
 }
 
-function setPriority(code, priority) {
-    const item = watchlist.find(w => w.code === code);
-    if (item) { item.priority = priority; save(); }
+// ---- Set priority ----
+// NOTE: id from onclick HTML attribute arrives as a string — use Number() to match
+async function setPriority(rawId, priority) {
+    const id = Number(rawId);
+    try {
+        const res = await fetch(`/api/watchlist/${id}/priority`, {
+            method:  'PATCH',
+            headers: csrfHeaders(),
+            body:    JSON.stringify({ priority }),
+        });
+        if (!res.ok) { showToast('Gagal update priority.', true); return; }
+
+        const item = watchlist.find(w => Number(w.id) === id);
+        if (item) item.priority = priority;
+        updateStats();
+        renderWatchlist();
+    } catch (e) {
+        console.error('setPriority error:', e);
+        showToast('Error: ' + e.message, true);
+    }
 }
 
+// ---- Render watchlist grid ----
 function renderWatchlist() {
     const grid  = document.getElementById('watchlistGrid');
     const empty = document.getElementById('watchlistEmpty');
 
+    // Guard: bail out if critical elements are missing
+    if (!grid) return;
+
     if (!watchlist.length) {
+        // Clear any existing cards and show empty state
         grid.innerHTML = '';
-        grid.appendChild(empty);
-        empty.style.display = 'block';
+        if (empty) empty.style.display = 'block';
         return;
     }
-    empty.style.display = 'none';
+
+    // Hide empty state (it lives outside the grid, so it's always findable)
+    if (empty) empty.style.display = 'none';
 
     const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-    const sorted = [...watchlist].sort((a, b) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+    const sorted = [...watchlist].sort((a, b) =>
+        (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
 
+    // Overwrite only the grid — #watchlistEmpty is untouched because it's outside
     grid.innerHTML = sorted.map(w => {
-        const prioColor = w.priority === 'HIGH' ? 'var(--pw-red)' : w.priority === 'MEDIUM' ? 'var(--pw-amber)' : 'var(--pw-green)';
+        const prioColor  = w.priority === 'HIGH' ? 'var(--pw-red)' : w.priority === 'MEDIUM' ? 'var(--pw-amber)' : 'var(--pw-green)';
         const prioBorder = w.priority === 'HIGH' ? 'rgba(239,68,68,.35)' : w.priority === 'MEDIUM' ? 'rgba(245,158,11,.35)' : 'rgba(34,197,94,.35)';
-        const addedDate = new Date(w.addedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+        const addedDate  = new Date(w.added_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+        const code       = w.country_code ?? '—';
 
         return `
         <div class="col-xl-3 col-lg-4 col-md-6">
             <div class="pw-card" style="border-color:${prioBorder};position:relative;overflow:hidden;">
-                {{-- Flag blur bg --}}
-                <div style="position:absolute;inset:0;background:url('https://flagsapi.com/${w.code}/flat/64.png') center/cover;opacity:.04;filter:blur(6px);"></div>
+                <div style="position:absolute;inset:0;background:url('https://flagsapi.com/${code}/flat/64.png') center/cover;opacity:.04;filter:blur(6px);"></div>
                 <div style="position:relative;">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-                        <img src="https://flagsapi.com/${w.code}/flat/64.png"
+                        <img src="https://flagsapi.com/${code}/flat/64.png"
                              style="width:44px;height:30px;object-fit:cover;border-radius:5px;border:1px solid rgba(255,255,255,.1);"
                              onerror="this.style.display='none'">
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#fff;">${w.name}</div>
-                            <div style="font-size:11px;color:var(--pw-text-dim);font-family:'JetBrains Mono',monospace;">${w.code}</div>
+                            <div style="font-size:15px;font-weight:700;color:#fff;">${w.country_name}</div>
+                            <div style="font-size:11px;color:var(--pw-text-dim);font-family:'JetBrains Mono',monospace;">${code}</div>
                         </div>
                         <div style="margin-left:auto;">
                             <span style="
@@ -203,16 +314,16 @@ function renderWatchlist() {
                     </div>
 
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                        <a href="/country/${w.code}" class="btn-pw-outline" style="text-decoration:none;font-size:12px;padding:7px 12px;display:flex;align-items:center;gap:4px;">
+                        <a href="/country/${code}" class="btn-pw-outline" style="text-decoration:none;font-size:12px;padding:7px 12px;display:flex;align-items:center;gap:4px;">
                             <i class="bi bi-eye"></i> View Intel
                         </a>
-                        <select onchange="setPriority('${w.code}', this.value)"
+                        <select onchange="setPriority(${w.id}, this.value)"
                             style="background:var(--pw-bg3);border:1px solid var(--pw-border);color:var(--pw-text-dim);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
                             <option value="HIGH"   ${w.priority==='HIGH'   ? 'selected' : ''}>🔴 High</option>
                             <option value="MEDIUM" ${w.priority==='MEDIUM' ? 'selected' : ''}>🟡 Medium</option>
                             <option value="LOW"    ${w.priority==='LOW'    ? 'selected' : ''}>🟢 Low</option>
                         </select>
-                        <button onclick="removeFromWatchlist('${w.code}')"
+                        <button onclick="removeFromWatchlist(${w.id})"
                             style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--pw-red);
                                    border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">
                             <i class="bi bi-trash3"></i>
@@ -224,17 +335,23 @@ function renderWatchlist() {
     }).join('');
 }
 
-function showToast(msg) {
+function showToast(msg, isError = false) {
     const box = document.getElementById('toastBox');
-    document.getElementById('toastMsg').textContent = msg;
+    if (!box) return;
+    const msgEl = document.getElementById('toastMsg');
+    if (msgEl) msgEl.textContent = msg;
+    box.style.color       = isError ? 'var(--pw-red)' : 'var(--pw-cyan)';
+    box.style.borderColor = isError ? 'rgba(239,68,68,.35)' : 'var(--pw-border2)';
+    const icon = box.querySelector('i');
+    if (icon) icon.className = isError ? 'bi bi-exclamation-circle me-2' : 'bi bi-check-circle me-2';
     box.style.display = 'block';
-    setTimeout(() => box.style.display = 'none', 3000);
+    setTimeout(() => { if (box) box.style.display = 'none'; }, 4000);
 }
 
-// Init
-updateStats();
-renderWatchlist();
+// Init — load from database
+loadWatchlist();
 </script>
+
 
 <style>
 .pw-quick-btn {
