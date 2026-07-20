@@ -94,6 +94,42 @@
 
         {{-- Articles --}}
         <div>
+            {{-- ── Section: Analisis Admin (selalu tampil jika ada) ── --}}
+            @if(isset($adminArticles) && $adminArticles->isNotEmpty())
+            <div class="pw-admin-articles mb-4">
+                <div class="pw-section-title" style="color:#f59e0b;">
+                    <i class="bi bi-shield-fill-check me-2" style="color:#f59e0b;"></i>
+                    ANALISIS ADMIN
+                    <span style="margin-left:8px;font-size:10px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);
+                                 color:#f59e0b;padding:2px 8px;border-radius:10px;letter-spacing:1px;">
+                        {{ $adminArticles->count() }} ARTIKEL
+                    </span>
+                </div>
+
+                @foreach($adminArticles as $art)
+                <div class="pw-admin-article-card">
+                    <div class="pw-aac-badge">
+                        <i class="bi bi-shield-fill-check" style="font-size:10px;"></i>
+                        ANALISIS ADMIN
+                    </div>
+                    <h3 class="pw-aac-title">{{ $art->title }}</h3>
+                    <p class="pw-aac-content">{{ Str::limit(strip_tags($art->content), 220) }}</p>
+                    <div class="pw-aac-meta">
+                        <span>
+                            <i class="bi bi-person-fill"></i>
+                            {{ $art->author ?? 'Admin PortWatch' }}
+                        </span>
+                        <span>
+                            <i class="bi bi-calendar3"></i>
+                            {{ $art->created_at->translatedFormat('d M Y') }}
+                        </span>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            @endif
+
+            {{-- ── Section: Berita GNews (diisi oleh JS) ── --}}
             <div id="newsContainer"></div>
         </div>
 
@@ -172,9 +208,10 @@ async function fetchNews() {
     }
 
     try {
-        const q   = encodeURIComponent(query + ' ' + category);
-        const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=10&apikey=${apiKey}`;
-        const r   = await fetch(url);
+        const q    = encodeURIComponent(query + ' ' + category);
+        const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('.')[0] + 'Z';
+        const url  = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=10&sortby=publishedAt&from=${from}&apikey=${apiKey}`;
+        const r    = await fetch(url);
         if (!r.ok) throw new Error();
         const data = await r.json();
         allArticles = (data.articles ?? []).map(a => ({
@@ -345,6 +382,43 @@ document.getElementById('sentimentFilter').addEventListener('change', () => {
     font-size: 12px; cursor: pointer; transition: .2s;
 }
 .pw-quick-btn:hover { border-color: var(--pw-border2); color: var(--pw-cyan); }
+
+/* ── Admin Article Card ── */
+.pw-admin-article-card {
+    background: rgba(245,158,11,.05);
+    border: 1px solid rgba(245,158,11,.25);
+    border-left: 3px solid #f59e0b;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    transition: .22s ease;
+}
+.pw-admin-article-card:hover {
+    background: rgba(245,158,11,.09);
+    border-color: rgba(245,158,11,.45);
+}
+.pw-aac-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.35);
+    color: #f59e0b; font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px; font-family: 'JetBrains Mono', monospace;
+    padding: 2px 10px; border-radius: 20px; margin-bottom: 10px;
+}
+.pw-aac-title {
+    font-size: 15px; font-weight: 700; color: #fff;
+    line-height: 1.4; margin: 0 0 8px;
+}
+.pw-aac-content {
+    font-size: 13px; color: var(--pw-text-dim);
+    line-height: 1.65; margin: 0 0 12px;
+}
+.pw-aac-meta {
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; font-size: 12px; color: var(--pw-text-dim);
+    padding-top: 10px; border-top: 1px solid rgba(245,158,11,.15);
+}
+.pw-aac-meta span { display: flex; align-items: center; gap: 5px; }
+.pw-aac-meta i { color: #f59e0b; }
 
 /* ── News Card ── */
 .pw-news-card {

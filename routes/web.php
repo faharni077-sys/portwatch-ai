@@ -26,7 +26,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::view('/weather', 'weather')->name('weather');
     Route::view('/currency', 'currency')->name('currency');
-    Route::view('/news', 'news')->name('news');
+    Route::get('/news', function () {
+        $adminArticles = \App\Models\Article::latest()->get();
+        return view('news', compact('adminArticles'));
+    })->name('news');
     Route::get('/ports', [PortController::class, 'index'])->name('ports.index');
     Route::get('/api/ports', [PortController::class,'getPorts']);
     Route::view('/analytics', 'analytics')->name('analytics');

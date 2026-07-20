@@ -10,13 +10,18 @@ class NewsService
     {
         $apiKey = env('GNEWS_API_KEY');
 
+        // Only fetch articles published in the last 7 days, newest first
+        $from = now()->subDays(7)->toIso8601ZuluString();
+
         $response = Http::get(
             'https://gnews.io/api/v4/search',
             [
-                'q' => $country . ' logistics OR trade OR shipping OR economy',
-                'lang' => 'en',
-                'max' => 5,
-                'apikey' => $apiKey
+                'q'      => $country . ' logistics OR trade OR shipping OR economy',
+                'lang'   => 'en',
+                'max'    => 5,
+                'sortby' => 'publishedAt',
+                'from'   => $from,
+                'apikey' => $apiKey,
             ]
         );
 
