@@ -11,6 +11,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust ALL reverse proxies (ngrok, Railway, Cloudflare, VPS nginx, etc.)
+        // so Laravel reads X-Forwarded-Proto and correctly detects HTTPS.
+        // This prevents Mixed Content errors when serving behind any proxy.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
         ]);
@@ -18,3 +23,4 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
+
