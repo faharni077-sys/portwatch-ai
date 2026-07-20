@@ -472,27 +472,24 @@ async function renderNewsFeed(country, code) {
         <span class="dot-pulse" style="display:inline-block;margin-right:6px;"></span>MEMUAT BERITA ${country.toUpperCase()}...
     </div>`;
 
-    const apiKey = '{{ env("GNEWS_API_KEY", "") }}';
     let articles  = [];
 
-    if (apiKey) {
-        try {
-            const q   = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
-            const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&apikey=${apiKey}`;
-            const r   = await fetch(url);
-            if (r.ok) {
-                const data = await r.json();
-                articles = (data.articles ?? []).map(a => ({
-                    title:       a.title,
-                    description: a.description ?? '',
-                    source:      a.source?.name ?? '—',
-                    url:         a.url,
-                    image:       a.image ?? null,
-                    publishedAt: a.publishedAt,
-                }));
-            }
-        } catch (e) { /* fallback ke dummy */ }
-    }
+    try {
+        const q   = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
+        const url = `/api/news?q=${q}&max=5`;
+        const r   = await fetch(url);
+        if (r.ok) {
+            const data = await r.json();
+            articles = (data.articles ?? []).map(a => ({
+                title:       a.title,
+                description: a.description ?? '',
+                source:      a.source?.name ?? '—',
+                url:         a.url,
+                image:       a.image ?? null,
+                publishedAt: a.publishedAt,
+            }));
+        }
+    } catch (e) { /* fallback ke dummy */ }
 
     /* fallback jika API tidak tersedia */
     if (!articles.length) {
@@ -532,7 +529,7 @@ async function renderNewsFeed(country, code) {
         } catch(e) {}
 
         const thumbHtml = a.image
-            ? `<img src="${a.image}" style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);" onerror="this.style.display='none'" alt="">`
+            ? `<img src="${a.image}" style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);" onerror="this.outerHTML='<div style=\'width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;\'><i class=\'bi bi-newspaper\' style=\'color:var(--pw-border2);font-size:18px;\'></i></div>';" alt="">`
             : `<div style="width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-newspaper" style="color:var(--pw-border2);font-size:18px;"></i></div>`;
 
         const el = document.createElement('a');

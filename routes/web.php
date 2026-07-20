@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PortController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\WatchlistController;
+use App\Http\Controllers\NewsController;
 
 
 
@@ -19,6 +20,7 @@ Route::get('/', function () {
 // work reliably on Railway HTTPS without session cookie issues.
 // The endpoint itself checks auth via the middleware chain below.
 Route::get('/api/ports', [PortController::class, 'getPorts'])->middleware('auth');
+Route::get('/api/news',  [NewsController::class,  'search'])->middleware('auth');
 
 Route::middleware(['auth'])->group(function () {
 

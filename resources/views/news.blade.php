@@ -199,18 +199,10 @@ async function fetchNews() {
     document.getElementById('newsLoading').style.display = 'block';
     document.getElementById('newsResults').style.display = 'none';
 
-    const apiKey = '{{ env("GNEWS_API_KEY", "") }}';
-
-    if (!apiKey) {
-        allArticles = getSampleArticles(query);
-        renderNews(allArticles);
-        return;
-    }
-
     try {
         const q    = encodeURIComponent(query + ' ' + category);
         const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('.')[0] + 'Z';
-        const url  = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=10&sortby=publishedAt&from=${from}&apikey=${apiKey}`;
+        const url  = `/api/news?q=${q}&max=10&from=${encodeURIComponent(from)}`;
         const r    = await fetch(url);
         if (!r.ok) throw new Error();
         const data = await r.json();
@@ -222,6 +214,7 @@ async function fetchNews() {
             image:       a.image ?? null,
             publishedAt: a.publishedAt,
         }));
+        if (!allArticles.length) throw new Error();
         renderNews(allArticles);
     } catch (e) {
         allArticles = getSampleArticles(query);
@@ -273,15 +266,25 @@ function renderNews(articles) {
         }
 
         /* ── thumbnail ── */
+        const placeholderThumb = `<div class="pw-nc-thumb-wrap pw-nc-thumb-placeholder">
+            <i class="bi bi-newspaper"></i>
+        </div>`;
         const imgHtml = a.image
-            ? `<a href="${a.url}" target="_blank" rel="noopener" class="pw-nc-thumb-wrap">
+            ? `<div class="pw-nc-thumb-wrap">
                    <img src="${a.image}" class="pw-nc-thumb"
-                        onerror="this.closest('.pw-nc-thumb-wrap').style.display='none'" alt="">
-               </a>`
-            : '';
+                        onerror="this.parentNode.innerHTML='<i class=\'bi bi-newspaper pw-nc-ph-icon\'></i>';this.parentNode.classList.add('pw-nc-thumb-placeholder');" alt="">
+               </div>`
+            : placeholderThumb;
 
         const el = document.createElement('div');
         el.className = 'pw-news-card';
+        if (a.url && a.url !== '#') {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', function(e) {
+                if (e.target.closest('a')) return; // let native <a> handle its own clicks
+                window.open(a.url, '_blank', 'noopener');
+            });
+        }
         el.innerHTML = `
             ${imgHtml}
             <div class="pw-nc-body">
@@ -441,8 +444,20 @@ document.getElementById('sentimentFilter').addEventListener('change', () => {
 .pw-nc-thumb-wrap {
     flex-shrink: 0;
     width: 160px;
-    display: block;
+    display: flex;
     overflow: hidden;
+    align-items: stretch;
+}
+.pw-nc-thumb-placeholder {
+    align-items: center;
+    justify-content: center;
+    background: var(--pw-bg3);
+    border-right: 1px solid var(--pw-border);
+}
+.pw-nc-thumb-placeholder .bi-newspaper,
+.pw-nc-ph-icon {
+    font-size: 32px;
+    color: var(--pw-border2);
 }
 .pw-nc-thumb {
     width: 100%; height: 100%;
