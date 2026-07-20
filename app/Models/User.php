@@ -34,7 +34,7 @@ class User extends Authenticatable
     /** Check if the user is an admin. */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return ($this->role ?? 'user') === 'admin';
     }
 
     /** Watchlists belonging to this user. */

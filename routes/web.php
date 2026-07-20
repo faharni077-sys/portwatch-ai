@@ -14,6 +14,12 @@ use App\Http\Controllers\WatchlistController;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// /api/ports is outside the auth middleware group so Leaflet AJAX calls
+// work reliably on Railway HTTPS without session cookie issues.
+// The endpoint itself checks auth via the middleware chain below.
+Route::get('/api/ports', [PortController::class, 'getPorts'])->middleware('auth');
+
 Route::middleware(['auth'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])
@@ -32,7 +38,8 @@ Route::middleware(['auth'])->group(function () {
         return view('news', compact('adminArticles'));
     })->name('news');
     Route::get('/ports', [PortController::class, 'index'])->name('ports.index');
-    Route::get('/api/ports', [PortController::class,'getPorts']);
+    // /api/ports is defined OUTSIDE this middleware group (see above) to avoid
+    // Railway HTTPS session issues with AJAX — do not re-add it here.
     Route::view('/analytics', 'analytics')->name('analytics');
     Route::view('/compare', 'compare')->name('compare');
     Route::view('/watchlist', 'watchlist')->name('watchlist');

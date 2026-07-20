@@ -8,16 +8,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Add role column after email — default 'user', admin gets 'admin'
-            $table->string('role')->default('user')->after('email');
-        });
+        // Guard: only add the column if it does not exist yet.
+        // This makes the migration safe to run on Railway where the column
+        // may already exist from a previous local deploy.
+        if (!Schema::hasColumn('users', 'role')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->string('role')->default('user')->after('email');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
-        });
+        if (Schema::hasColumn('users', 'role')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('role');
+            });
+        }
     }
 };

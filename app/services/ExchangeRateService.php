@@ -8,12 +8,16 @@ class ExchangeRateService
 {
     public function getRates($base = 'USD')
     {
-        $response = Http::timeout(20)->get(
-            "https://open.er-api.com/v6/latest/{$base}"
-        );
+        try {
+            $response = Http::timeout(10)->get(
+                "https://open.er-api.com/v6/latest/{$base}"
+            );
 
-        if ($response->successful()) {
-            return $response->json();
+            if ($response->successful()) {
+                return $response->json();
+            }
+        } catch (\Exception $e) {
+            // API unreachable on Railway — return null, caller handles gracefully
         }
 
         return null;
