@@ -9,18 +9,32 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('watchlists', function (Blueprint $table) {
-            // Priority level set by user
-            $table->enum('priority', ['HIGH', 'MEDIUM', 'LOW'])->default('MEDIUM')->after('country_id');
-            // Denormalized country name & code — fallback when country_id has no match
-            $table->string('country_name')->nullable()->after('priority');
-            $table->string('country_code', 10)->nullable()->after('country_name');
+            // Guard: only add columns that do not already exist.
+            // This makes the migration safe to re-run on Railway re-deploys.
+            if (! Schema::hasColumn('watchlists', 'priority')) {
+                $table->enum('priority', ['HIGH', 'MEDIUM', 'LOW'])->default('MEDIUM')->after('country_id');
+            }
+            if (! Schema::hasColumn('watchlists', 'country_name')) {
+                $table->string('country_name')->nullable()->after('priority');
+            }
+            if (! Schema::hasColumn('watchlists', 'country_code')) {
+                $table->string('country_code', 10)->nullable()->after('country_name');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('watchlists', function (Blueprint $table) {
-            $table->dropColumn(['priority', 'country_name', 'country_code']);
+            $columns = [];
+            foreach (['priority', 'country_name', 'country_code'] as $col) {
+                if (Schema::hasColumn('watchlists', $col)) {
+                    $columns[] = $col;
+                }
+            }
+            if (! empty($columns)) {
+                $table->dropColumn($columns);
+            }
         });
     }
 };
