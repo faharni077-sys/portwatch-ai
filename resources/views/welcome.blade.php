@@ -304,7 +304,7 @@
      ============================================================ --}}
 <footer class="pw-footer">
     <div class="pw-footer-logo">⬡ PORTWATCH AI</div>
-    <div class="pw-footer-copy">© {{ date('Y') }} PortWatch AI — Global Supply Chain Intelligence Platform</div>
+    <div class="pw-footer-copy">© {{ date('Y') }} PortWatch AI — Developed by Riezky Maharani</div>
     <div class="pw-footer-links">
         <a href="#features"    class="pw-footer-link">Features</a>
         <a href="#how-it-works" class="pw-footer-link">How It Works</a>
