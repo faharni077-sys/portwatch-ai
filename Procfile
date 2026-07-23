@@ -1,3 +1,1 @@
-# Procfile intentionally left minimal.
-# The start command is defined in railway.toml [deploy] startCommand.
-# Having a 'web:' entry here would conflict with railway.toml on Railway.
+web: php artisan serve --host=0.0.0.0 --port=$PORT

@@ -12,14 +12,19 @@ use App\Models\Country;
 /**
  * ProductionSeeder — safe to run on every Railway deploy.
  *
- * All operations use updateOrCreate / insertOrIgnore so re-running
- * this seeder never duplicates or overwrites user data.
+ * Design rules:
+ *   1. Admin user and lexicon are seeded FIRST and never depend on
+ *      external HTTP. They always succeed.
+ *   2. Countries seed makes an HTTP call to GitHub. If it fails the
+ *      method catches the exception and logs a warning — it does NOT
+ *      re-throw, so the admin user seeding is never blocked.
+ *   3. All writes use updateOrCreate / updateOrInsert — fully idempotent.
  */
 class ProductionSeeder extends Seeder
 {
     public function run(): void
     {
-        // ── 1. Admin user ────────────────────────────────────────────────
+        // ── Step 1: Admin user (no HTTP, always succeeds) ─────────────────
         User::updateOrCreate(
             ['email' => 'admin@portwatch.ai'],
             [
@@ -28,36 +33,44 @@ class ProductionSeeder extends Seeder
                 'role'     => 'admin',
             ]
         );
+        $this->command?->info('[1/3] Admin user: OK');
 
-        $this->command?->info('Admin user: OK');
+        // ── Step 2: Lexicon words (no HTTP, always succeeds) ──────────────
+        $this->seedLexicon();
+        $this->command?->info('[2/3] Lexicon: OK');
 
-        // ── 2. Countries — only seed if table is empty ───────────────────
+        // ── Step 3: Countries (HTTP to GitHub — best-effort, non-blocking) ─
         if (Country::count() === 0) {
             $this->seedCountries();
         } else {
-            $this->command?->info('Countries: already seeded (' . Country::count() . ' rows), skipping.');
+            $this->command?->info('[3/3] Countries: already seeded (' . Country::count() . ' rows), skipping.');
         }
 
-        // ── 3. Lexicon words (positive / negative) ───────────────────────
-        $this->seedLexicon();
-
-        $this->command?->info('ProductionSeeder: completed successfully.');
+        $this->command?->info('ProductionSeeder: completed.');
     }
 
-    // ── Countries ────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // Countries — best-effort, never throws
+    // ─────────────────────────────────────────────────────────────────────
     private function seedCountries(): void
     {
         try {
-            $response = Http::timeout(15)->get(
+            $response = Http::timeout(20)->get(
                 'https://raw.githubusercontent.com/mledoze/countries/master/countries.json'
             );
 
             if ($response->failed()) {
-                $this->command?->warn('Countries: failed to fetch from GitHub, skipping.');
+                $this->command?->warn('[3/3] Countries: GitHub returned non-2xx, skipping.');
                 return;
             }
 
-            foreach ($response->json() as $c) {
+            $rows = $response->json();
+            if (empty($rows)) {
+                $this->command?->warn('[3/3] Countries: empty JSON from GitHub, skipping.');
+                return;
+            }
+
+            foreach ($rows as $c) {
                 Country::updateOrCreate(
                     ['code' => $c['cca2']],
                     [
@@ -74,13 +87,18 @@ class ProductionSeeder extends Seeder
                 );
             }
 
-            $this->command?->info('Countries: seeded ' . Country::count() . ' rows.');
+            $this->command?->info('[3/3] Countries: seeded ' . Country::count() . ' rows.');
+
         } catch (\Exception $e) {
-            $this->command?->warn('Countries: exception — ' . $e->getMessage());
+            // Non-fatal — admin login still works even if countries seed fails.
+            // DashboardController will auto-seed on first page load instead.
+            $this->command?->warn('[3/3] Countries: exception (' . $e->getMessage() . ') — skipped. Will auto-seed on first dashboard load.');
         }
     }
 
-    // ── Lexicon ──────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // Lexicon — pure data, no HTTP
+    // ─────────────────────────────────────────────────────────────────────
     private function seedLexicon(): void
     {
         $positive = [
@@ -114,7 +132,5 @@ class ProductionSeeder extends Seeder
                 ['word' => $word, 'created_at' => $now, 'updated_at' => $now]
             );
         }
-
-        $this->command?->info('Lexicon: seeded ' . count($positive) . ' positive + ' . count($negative) . ' negative words.');
     }
 }

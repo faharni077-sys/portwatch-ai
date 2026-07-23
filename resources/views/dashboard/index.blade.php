@@ -494,9 +494,9 @@ async function renderNewsFeed(country, code) {
     /* fallback jika API tidak tersedia */
     if (!articles.length) {
         articles = [
-            { title: `${country} trade route analysis updated`, description: 'Market conditions and logistics assessment for the selected region.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date().toISOString() },
-            { title: `${country} supply chain risk report`, description: 'Current port operations and shipping status in the region.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date(Date.now()-3600000).toISOString() },
-            { title: `${country} currency and inflation update`, description: 'Economic indicators impacting import and export costs.', source: 'PortWatch AI', url: '/news', image: null, publishedAt: new Date(Date.now()-7200000).toISOString() },
+            { title: `${country} trade route analysis updated`, description: 'Market conditions and logistics assessment for the selected region.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date().toISOString() },
+            { title: `${country} supply chain risk report`, description: 'Current port operations and shipping status in the region.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date(Date.now()-3600000).toISOString() },
+            { title: `${country} currency and inflation update`, description: 'Economic indicators impacting import and export costs.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date(Date.now()-7200000).toISOString() },
         ];
     }
 
@@ -519,8 +519,9 @@ async function renderNewsFeed(country, code) {
         const sentiment  = quickAnalyze(a.title + ' ' + a.description);
         const sentColor  = sentiment === 'Positive' ? '#22c55e' : sentiment === 'Negative' ? '#ef4444' : '#f59e0b';
         const sentIcon   = sentiment === 'Positive' ? '↑' : sentiment === 'Negative' ? '↓' : '→';
-        const articleUrl = (a.url && a.url !== '#') ? a.url : '/news';
-        const isExternal = a.url && a.url !== '#' && a.url !== '/news';
+
+        /* Only treat as real URL if it starts with http */
+        const hasUrl = a.url && a.url.startsWith('http');
 
         let dateStr = '';
         try {
@@ -532,12 +533,7 @@ async function renderNewsFeed(country, code) {
             ? `<img src="${a.image}" style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);" onerror="this.outerHTML='<div style=\'width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;\'><i class=\'bi bi-newspaper\' style=\'color:var(--pw-border2);font-size:18px;\'></i></div>';" alt="">`
             : `<div style="width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-newspaper" style="color:var(--pw-border2);font-size:18px;"></i></div>`;
 
-        const el = document.createElement('a');
-        el.href   = articleUrl;
-        el.target = isExternal ? '_blank' : '_self';
-        if (isExternal) el.rel = 'noopener';
-        el.className = 'pw-live-intel-item';
-        el.innerHTML = `
+        const innerHtml = `
             ${thumbHtml}
             <div style="flex:1;min-width:0;">
                 <div style="font-size:12px;font-weight:600;color:#fff;line-height:1.4;
@@ -552,6 +548,18 @@ async function renderNewsFeed(country, code) {
                 </div>
             </div>
         `;
+
+        let el;
+        if (hasUrl) {
+            el = document.createElement('a');
+            el.href   = a.url;
+            el.target = '_blank';
+            el.rel    = 'noopener';
+        } else {
+            el = document.createElement('div');
+        }
+        el.className = 'pw-live-intel-item';
+        el.innerHTML = innerHtml;
         feed.appendChild(el);
     });
 

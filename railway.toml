@@ -3,20 +3,7 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "php artisan serve --host=0.0.0.0 --port=$PORT"
-
-# releaseCommand runs in a separate container before traffic is switched over.
-# If it exits non-zero, Railway cancels the deployment.
-#
-# Rules applied here:
-#   1. Clear caches first so stale config cannot block migrate.
-#   2. Run migrate --force (idempotent — safe to re-run on every deploy).
-#   3. Seed only admin user + lexicon (no external HTTP calls, fully safe).
-#      The seeder is guarded with updateOrCreate/updateOrInsert, so re-running
-#      never creates duplicates.
-#   4. Re-cache config / routes / views last.
-#   5. Every step uses "cmd1 && cmd2" so a real failure still aborts the chain.
-releaseCommand = "php artisan config:clear && php artisan route:clear && php artisan view:clear && php artisan migrate --force && php artisan db:seed --class=ProductionSeeder --force && php artisan config:cache && php artisan route:cache"
-
+releaseCommand = "php artisan config:clear && php artisan route:clear && php artisan view:clear && php artisan migrate --force && php artisan db:seed --class=ProductionSeeder --force && php artisan config:cache"
 healthcheckPath = "/up"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
