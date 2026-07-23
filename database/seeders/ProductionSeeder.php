@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use App\Models\User;
 use App\Models\Country;
@@ -25,11 +24,16 @@ class ProductionSeeder extends Seeder
     public function run(): void
     {
         // ── Step 1: Admin user (no HTTP, always succeeds) ─────────────────
+        // NOTE: Do NOT wrap password with Hash::make() here.
+        // The User model has 'password' => 'hashed' in its casts array,
+        // which automatically hashes the value on assignment.
+        // Using Hash::make() + the hashed cast causes double-hashing,
+        // which makes login fail even with the correct password.
         User::updateOrCreate(
             ['email' => 'admin@portwatch.ai'],
             [
                 'name'     => 'Admin PortWatch',
-                'password' => Hash::make('admin123456'),
+                'password' => 'admin123456',
                 'role'     => 'admin',
             ]
         );
