@@ -214,29 +214,41 @@ function loadPorts(country = '') {
     portMarkers.forEach(m => map.removeLayer(m));
     portMarkers = [];
     const url = country ? `/api/ports?country=${country}` : '/api/ports';
-    fetch(url)
-        .then(r => r.json())
+    fetch(url, { credentials: 'same-origin' })
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
         .then(data => {
             let loaded = 0;
             data.forEach(p => {
-                // Cast to float — API returns coordinates as strings ("24.4667000"),
-                // Leaflet requires numeric primitives for L.marker() to work reliably.
                 const lat = parseFloat(p.latitude);
                 const lng = parseFloat(p.longitude);
                 if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
                 const m = L.marker([lat, lng], { icon: portIcon }).addTo(map);
+                // Popup: port name, country, coordinates
                 m.bindPopup(`
-                    <div style="font-family:'JetBrains Mono',monospace;">
-                        <div style="color:#29c5ff;font-weight:700;margin-bottom:4px;">${p.port_name}</div>
-                        <div style="color:#7a9ab8;font-size:12px;">${p.city ?? '-'} · ${p.country?.name ?? '-'}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;min-width:180px;">
+                        <div style="color:#29c5ff;font-weight:700;font-size:13px;margin-bottom:6px;">
+                            ⚓ ${p.port_name}
+                        </div>
+                        <div style="color:#7a9ab8;font-size:11px;line-height:1.9;">
+                            🌍 ${p.country?.name ?? '—'}<br>
+                            📍 ${p.city ?? '—'}<br>
+                            🗺 ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                        </div>
                     </div>
                 `);
                 portMarkers.push(m);
                 loaded++;
             });
             document.getElementById('mapPortCount').textContent = loaded + ' PORTS LOADED';
+            // Refresh map size after markers are added in case container size changed
+            setTimeout(() => map.invalidateSize(), 200);
         })
-        .catch(() => {});
+        .catch(err => {
+            document.getElementById('mapPortCount').textContent = '0 PORTS';
+        });
 }
 loadPorts();
 
@@ -368,6 +380,7 @@ async function runAnalysis() {
         const lat = ci.latlng?.[0] ?? 0;
         const lon = ci.latlng?.[1] ?? 0;
         map.flyTo([lat, lon], 5, { duration: 1.5 });
+        setTimeout(() => map.invalidateSize(), 400);
 
         // Weather
         const weather = await fetchWeather(lat, lon);
@@ -481,21 +494,25 @@ async function renderNewsFeed(country, code) {
     let articles  = [];
 
     try {
-        const q   = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
-        const url = `/api/news?q=${q}&max=5`;
-        const r   = await fetch(url);
-        if (r.ok) {
-            const data = await r.json();
-            articles = (data.articles ?? []).map(a => ({
-                title:       a.title,
-                description: a.description ?? '',
-                source:      a.source?.name ?? '—',
-                url:         a.url,
-                image:       a.image ?? null,
-                publishedAt: a.publishedAt,
-            }));
+        const q    = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
+        const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('.')[0] + 'Z';
+        const gnewsKey = '{{ config("services.gnews.key") }}';
+        if (gnewsKey) {
+            const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&sortby=publishedAt&from=${from}&apikey=${gnewsKey}`;
+            const r   = await fetch(url);
+            if (r.ok) {
+                const data = await r.json();
+                articles = (data.articles ?? []).map(a => ({
+                    title:       a.title       ?? '',
+                    description: a.description ?? '',
+                    source:      a.source?.name ?? '—',
+                    url:         a.url         ?? null,
+                    image:       a.image       ?? null,
+                    publishedAt: a.publishedAt ?? null,
+                }));
+            }
         }
-    } catch (e) { /* fallback ke dummy */ }
+    } catch (e) { /* fallback ke placeholder */ }
 
     /* fallback jika API tidak tersedia */
     if (!articles.length) {
