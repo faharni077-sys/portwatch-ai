@@ -11,7 +11,7 @@
             <i class="bi bi-anchor me-2 text-cyan"></i>WORLD PORT MONITOR
         </div>
         <p style="color:var(--pw-text-dim);font-size:13px;margin:0;">
-            Interactive global port map — {{ count($ports) }} ports indexed worldwide.
+            Interactive global port map — <span id="headerPortCount">loading...</span> ports indexed worldwide.
         </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
@@ -35,7 +35,7 @@
 <div class="pw-stat-row mb-3">
     <div class="pw-card" style="padding:14px 18px;">
         <div class="pw-card-label">TOTAL PORTS</div>
-        <div class="pw-card-value text-cyan" id="portTotalCount">{{ count($ports) }}</div>
+        <div class="pw-card-value text-cyan" id="portTotalCount">—</div>
     </div>
     <div class="pw-card" style="padding:14px 18px;">
         <div class="pw-card-label">SHOWN ON MAP</div>
@@ -129,16 +129,24 @@ function loadPorts() {
     markers.forEach(m => portMap.removeLayer(m));
     markers = [];
 
-    fetch(`/api/ports?country=${encodeURIComponent(country)}&search=${encodeURIComponent(search)}`)
-        .then(r => r.json())
+    fetch(`/api/ports?country=${encodeURIComponent(country)}&search=${encodeURIComponent(search)}`, { credentials: 'same-origin' })
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
         .then(data => {
             currentPorts = data;
             document.getElementById('portShownCount').textContent = data.length;
+            document.getElementById('portTotalCount').textContent = data.length;
+            document.getElementById('headerPortCount').textContent = data.length.toLocaleString();
             renderPortList(data);
 
+            let placed = 0;
             data.forEach(p => {
-                if (!p.latitude || !p.longitude) return;
-                const m = L.marker([p.latitude, p.longitude], { icon: portIcon }).addTo(portMap);
+                const lat = parseFloat(p.latitude);
+                const lng = parseFloat(p.longitude);
+                if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+                const m = L.marker([lat, lng], { icon: portIcon }).addTo(portMap);
                 m.bindPopup(`
                     <div style="font-family:'JetBrains Mono',monospace;min-width:180px;">
                         <div style="color:#29c5ff;font-weight:700;font-size:13px;margin-bottom:6px;">
@@ -147,22 +155,31 @@ function loadPorts() {
                         <div style="color:#7a9ab8;font-size:12px;line-height:1.8;">
                             📍 ${p.city ?? '—'}<br>
                             🌍 ${p.country?.name ?? '—'}<br>
-                            🗺 ${parseFloat(p.latitude).toFixed(4)}, ${parseFloat(p.longitude).toFixed(4)}
+                            🗺 ${lat.toFixed(4)}, ${lng.toFixed(4)}
                         </div>
                     </div>
                 `);
                 markers.push(m);
+                placed++;
             });
 
-            if (data.length > 0 && country) {
-                const first = data.find(p => p.latitude && p.longitude);
-                if (first) portMap.flyTo([first.latitude, first.longitude], 6, { duration: 1 });
+            if (placed > 0 && country) {
+                const first = data.find(p => {
+                    const lt = parseFloat(p.latitude), ln = parseFloat(p.longitude);
+                    return !isNaN(lt) && !isNaN(ln) && !(lt === 0 && ln === 0);
+                });
+                if (first) portMap.flyTo([parseFloat(first.latitude), parseFloat(first.longitude)], 6, { duration: 1 });
             }
 
-            label.textContent = data.length + ' PORTS';
+            portMap.invalidateSize();
+            label.textContent = placed + ' PORTS';
             label.style.color = 'var(--pw-green)';
         })
-        .catch(() => { label.textContent = 'ERROR'; label.style.color = 'var(--pw-red)'; });
+        .catch(err => {
+            console.error('[PortWatch] loadPorts error:', err);
+            label.textContent = 'ERROR';
+            label.style.color = 'var(--pw-red)';
+        });
 }
 
 function renderPortList(ports) {
@@ -188,9 +205,12 @@ function renderPortList(ports) {
 
 function flyToPort(idx) {
     const p = currentPorts[idx];
-    if (p?.latitude && p?.longitude) {
-        portMap.flyTo([p.latitude, p.longitude], 8, { duration: 1 });
-        markers[idx]?.openPopup();
+    if (!p) return;
+    const lat = parseFloat(p.latitude);
+    const lng = parseFloat(p.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) {
+        portMap.flyTo([lat, lng], 8, { duration: 1 });
+        if (markers[idx]) markers[idx].openPopup();
     }
 }
 
