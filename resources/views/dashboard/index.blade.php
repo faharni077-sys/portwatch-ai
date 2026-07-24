@@ -210,23 +210,42 @@ const portIcon = L.divIcon({
     popupAnchor: [0, -8]
 });
 
+// Track in-flight loadPorts request to avoid race condition
+let _portsAbort = null;
+
 function loadPorts(country = '') {
+    // Cancel any previous in-flight request to avoid race condition
+    if (_portsAbort) { _portsAbort.abort(); }
+    _portsAbort = new AbortController();
+    const signal = _portsAbort.signal;
+
     portMarkers.forEach(m => map.removeLayer(m));
     portMarkers = [];
-    const url = country ? `/api/ports?country=${country}` : '/api/ports';
-    fetch(url, { credentials: 'same-origin' })
+
+    // Only query if a country is selected — avoid fetching all 14k ports on page load
+    if (!country) {
+        document.getElementById('mapPortCount').textContent = 'SELECT A COUNTRY';
+        return;
+    }
+
+    const url = `/api/ports?country=${encodeURIComponent(country)}`;
+    document.getElementById('mapPortCount').textContent = 'LOADING...';
+
+    fetch(url, { credentials: 'same-origin', signal })
         .then(r => {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         })
         .then(data => {
+            if (signal.aborted) return;
             let loaded = 0;
             data.forEach(p => {
                 const lat = parseFloat(p.latitude);
                 const lng = parseFloat(p.longitude);
-                if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+                // Fix: only skip ports where BOTH lat AND lng are exactly zero (invalid)
+                // !lat alone would skip legitimate ports at lat=0 (equator)
+                if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
                 const m = L.marker([lat, lng], { icon: portIcon }).addTo(map);
-                // Popup: port name, country, coordinates
                 m.bindPopup(`
                     <div style="font-family:'JetBrains Mono',monospace;min-width:180px;">
                         <div style="color:#29c5ff;font-weight:700;font-size:13px;margin-bottom:6px;">
@@ -243,14 +262,16 @@ function loadPorts(country = '') {
                 loaded++;
             });
             document.getElementById('mapPortCount').textContent = loaded + ' PORTS LOADED';
-            // Refresh map size after markers are added in case container size changed
-            setTimeout(() => map.invalidateSize(), 200);
+            map.invalidateSize();
         })
         .catch(err => {
+            if (err.name === 'AbortError') return; // intentionally cancelled
+            console.error('[PortWatch] loadPorts error:', err);
             document.getElementById('mapPortCount').textContent = '0 PORTS';
         });
 }
-loadPorts();
+// Do NOT call loadPorts() on page load — wait for user to select a country
+// to avoid fetching all 14,000+ ports unnecessarily
 
 // ---- Country lookup (mledoze GitHub — no API key, always works) ----
 let countryCache = {};
@@ -379,8 +400,13 @@ async function runAnalysis() {
     if (ci) {
         const lat = ci.latlng?.[0] ?? 0;
         const lon = ci.latlng?.[1] ?? 0;
+        // Load ports AFTER flyTo animation completes (moveend event)
+        // Loading during animation causes Leaflet to miscalculate marker positions
+        map.once('moveend', () => {
+            map.invalidateSize();
+            loadPorts(code);
+        });
         map.flyTo([lat, lon], 5, { duration: 1.5 });
-        setTimeout(() => map.invalidateSize(), 400);
 
         // Weather
         const weather = await fetchWeather(lat, lon);
@@ -474,8 +500,9 @@ async function runAnalysis() {
             risk.level === 'MEDIUM' ? 'rgba(245,158,11,.3)' : 'rgba(34,197,94,.3)';
     }
 
-    // Load ports for this country
-    loadPorts(code);
+    // Ports are now loaded via the map.once('moveend') listener above (after flyTo finishes).
+    // If fetchCountryInfo failed (ci=null), load ports directly here as fallback
+    if (!ci) loadPorts(code);
 
     // News feed — GNews API
     await renderNewsFeed(name, code);
@@ -501,16 +528,17 @@ async function renderNewsFeed(country, code) {
         const r    = await fetch(url, { credentials: 'same-origin' });
         if (r.ok) {
             const data = await r.json();
-            // Only keep articles that have a real image (skip image-less)
+            // Accept ALL articles — show placeholder for those without image
+            // Previous .filter(a => a.image) was discarding valid articles → "No live news"
             articles = (data.articles ?? [])
-                .filter(a => a.image && a.url && a.url.startsWith('http'))
-                .slice(0, 4)
+                .filter(a => a.url && a.url.startsWith('http'))
+                .slice(0, 6)
                 .map(a => ({
                     title:       a.title              ?? '',
                     description: a.description        ?? '',
                     source:      a.source?.name       ?? '—',
                     url:         a.url,
-                    image:       a.image,
+                    image:       a.image              ?? null,
                     publishedAt: a.publishedAt        ?? null,
                 }));
         } else {
@@ -556,9 +584,15 @@ async function renderNewsFeed(country, code) {
             dateStr = new Date(a.publishedAt).toLocaleDateString('id-ID', { day:'2-digit', month:'short' });
         } catch(e) {}
 
-        const thumbHtml = `<img src="${a.image}"
-            style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);"
-            onerror="this.style.display='none'" alt="">`;
+        const thumbHtml = a.image
+            ? `<img src="${a.image}"
+                style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);"
+                onerror="this.style.display='none'" alt="">`
+            : `<div style="width:52px;height:52px;flex-shrink:0;border-radius:7px;border:1px solid var(--pw-border);
+                           background:var(--pw-bg3);display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-newspaper" style="font-size:18px;color:var(--pw-border2);"></i>
+               </div>`;
+
 
         const el = document.createElement('a');
         el.href   = a.url;
