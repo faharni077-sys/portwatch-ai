@@ -217,9 +217,14 @@ function loadPorts(country = '') {
     fetch(url)
         .then(r => r.json())
         .then(data => {
+            let loaded = 0;
             data.forEach(p => {
-                if (!p.latitude || !p.longitude) return;
-                const m = L.marker([p.latitude, p.longitude], { icon: portIcon }).addTo(map);
+                // Cast to float — API returns coordinates as strings ("24.4667000"),
+                // Leaflet requires numeric primitives for L.marker() to work reliably.
+                const lat = parseFloat(p.latitude);
+                const lng = parseFloat(p.longitude);
+                if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+                const m = L.marker([lat, lng], { icon: portIcon }).addTo(map);
                 m.bindPopup(`
                     <div style="font-family:'JetBrains Mono',monospace;">
                         <div style="color:#29c5ff;font-weight:700;margin-bottom:4px;">${p.port_name}</div>
@@ -227,8 +232,9 @@ function loadPorts(country = '') {
                     </div>
                 `);
                 portMarkers.push(m);
+                loaded++;
             });
-            document.getElementById('mapPortCount').textContent = data.length + ' PORTS LOADED';
+            document.getElementById('mapPortCount').textContent = loaded + ' PORTS LOADED';
         })
         .catch(() => {});
 }
