@@ -258,6 +258,8 @@ function loadPorts(country = '') {
                         </div>
                     </div>
                 `);
+                // Fill Port Intel Panel when marker is clicked
+                m.on('click', () => showPortIntel(p, lat, lng));
                 portMarkers.push(m);
                 loaded++;
             });
@@ -272,6 +274,37 @@ function loadPorts(country = '') {
 }
 // Do NOT call loadPorts() on page load — wait for user to select a country
 // to avoid fetching all 14,000+ ports unnecessarily
+
+// ---- Port Intel Panel ----
+function showPortIntel(port, lat, lng) {
+    const riskEl   = document.getElementById('riskVal');
+    const riskText = riskEl ? riskEl.textContent : '—';
+    const riskColor = riskEl ? riskEl.style.color : 'var(--pw-green)';
+    const country  = port.country?.name ?? '—';
+    const region   = port.country?.region ?? '—';
+
+    document.getElementById('piPortName').textContent  = port.port_name ?? '—';
+    document.getElementById('piCity').textContent      = port.city      ?? '—';
+    document.getElementById('piCountry').textContent   = country;
+    document.getElementById('piRegion').textContent    = region;
+    document.getElementById('piCoords').textContent    = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    document.getElementById('piRisk').textContent      = riskText;
+    document.getElementById('piRisk').style.color      = riskColor;
+    document.getElementById('portIntelCountry').textContent = country.toUpperCase();
+
+    const assessment = `> PORT: ${(port.port_name ?? '—').toUpperCase()}
+> LOCATION: ${(port.city ?? '—').toUpperCase()}, ${country.toUpperCase()}
+> COORDINATES: ${lat.toFixed(4)}°, ${lng.toFixed(4)}°
+> STATUS: OPERATIONAL
+> REGION: ${region.toUpperCase()}
+> RISK INDEX: ${riskText}
+> RECOMMENDATION: Monitor logistics conditions before scheduling shipment.`;
+    document.getElementById('piAssessment').textContent = assessment;
+
+    const panel = document.getElementById('portIntelPanel');
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 // ---- Country lookup (mledoze GitHub — no API key, always works) ----
 let countryCache = {};
