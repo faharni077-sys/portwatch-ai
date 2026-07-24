@@ -16,11 +16,11 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// /api/ports is outside the auth middleware group so Leaflet AJAX calls
-// work reliably on Railway HTTPS without session cookie issues.
-// The endpoint itself checks auth via the middleware chain below.
-Route::get('/api/ports', [PortController::class, 'getPorts'])->middleware('auth');
-Route::get('/api/news',  [NewsController::class,  'search'])->middleware('auth');
+// /api/ports and /api/news are public read-only endpoints.
+// Removing auth middleware so Leaflet and JS fetch() calls work
+// reliably on Railway HTTPS without session cookie dependency.
+Route::get('/api/ports', [PortController::class, 'getPorts']);
+Route::get('/api/news',  [NewsController::class,  'search']);
 
 Route::middleware(['auth'])->group(function () {
 

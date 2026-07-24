@@ -491,36 +491,44 @@ async function renderNewsFeed(country, code) {
         <span class="dot-pulse" style="display:inline-block;margin-right:6px;"></span>MEMUAT BERITA ${country.toUpperCase()}...
     </div>`;
 
-    let articles  = [];
+    let articles = [];
 
     try {
         const q    = encodeURIComponent(country + ' logistics OR trade OR shipping OR economy');
         const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('.')[0] + 'Z';
-        const gnewsKey = '{{ config("services.gnews.key") }}';
-        if (gnewsKey) {
-            const url = `https://gnews.io/api/v4/search?q=${q}&lang=en&max=5&sortby=publishedAt&from=${from}&apikey=${gnewsKey}`;
-            const r   = await fetch(url);
-            if (r.ok) {
-                const data = await r.json();
-                articles = (data.articles ?? []).map(a => ({
-                    title:       a.title       ?? '',
-                    description: a.description ?? '',
-                    source:      a.source?.name ?? '—',
-                    url:         a.url         ?? null,
-                    image:       a.image       ?? null,
-                    publishedAt: a.publishedAt ?? null,
+        // Use backend proxy /api/news — keeps API key secure, avoids CORS block
+        const url  = `/api/news?q=${q}&max=10&from=${from}`;
+        const r    = await fetch(url, { credentials: 'same-origin' });
+        if (r.ok) {
+            const data = await r.json();
+            // Only keep articles that have a real image (skip image-less)
+            articles = (data.articles ?? [])
+                .filter(a => a.image && a.url && a.url.startsWith('http'))
+                .slice(0, 4)
+                .map(a => ({
+                    title:       a.title              ?? '',
+                    description: a.description        ?? '',
+                    source:      a.source?.name       ?? '—',
+                    url:         a.url,
+                    image:       a.image,
+                    publishedAt: a.publishedAt        ?? null,
                 }));
-            }
+        } else {
+            console.warn('[PortWatch] /api/news responded', r.status);
         }
-    } catch (e) { /* fallback ke placeholder */ }
+    } catch (e) {
+        console.error('[PortWatch] renderNewsFeed error:', e);
+    }
 
-    /* fallback jika API tidak tersedia */
+    // No dummy fallback — show "no news" message if GNews unavailable
     if (!articles.length) {
-        articles = [
-            { title: `${country} trade route analysis updated`, description: 'Market conditions and logistics assessment for the selected region.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date().toISOString() },
-            { title: `${country} supply chain risk report`, description: 'Current port operations and shipping status in the region.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date(Date.now()-3600000).toISOString() },
-            { title: `${country} currency and inflation update`, description: 'Economic indicators impacting import and export costs.', source: 'PortWatch AI', url: null, image: null, publishedAt: new Date(Date.now()-7200000).toISOString() },
-        ];
+        feed.innerHTML = `<div style="color:var(--pw-text-dim);font-size:12px;padding:20px;text-align:center;font-family:'JetBrains Mono',monospace;">
+            <i class="bi bi-broadcast" style="display:block;font-size:20px;margin-bottom:8px;opacity:.4;"></i>
+            No live news available
+        </div>`;
+        document.getElementById('newsCount').textContent = '0 BARU';
+        addEvent(`Berita tidak tersedia untuk <strong style="color:var(--pw-amber)">${country}</strong>`, 'warn');
+        return;
     }
 
     /* Analisis sentimen setiap artikel */
@@ -538,25 +546,26 @@ async function renderNewsFeed(country, code) {
 
     feed.innerHTML = '';
 
-    articles.slice(0, 4).forEach(a => {
+    articles.forEach(a => {
         const sentiment  = quickAnalyze(a.title + ' ' + a.description);
         const sentColor  = sentiment === 'Positive' ? '#22c55e' : sentiment === 'Negative' ? '#ef4444' : '#f59e0b';
         const sentIcon   = sentiment === 'Positive' ? '↑' : sentiment === 'Negative' ? '↓' : '→';
 
-        /* Only treat as real URL if it starts with http */
-        const hasUrl = a.url && a.url.startsWith('http');
-
         let dateStr = '';
         try {
-            const d = new Date(a.publishedAt);
-            dateStr = d.toLocaleDateString('id-ID', { day:'2-digit', month:'short' });
+            dateStr = new Date(a.publishedAt).toLocaleDateString('id-ID', { day:'2-digit', month:'short' });
         } catch(e) {}
 
-        const thumbHtml = a.image
-            ? `<img src="${a.image}" style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);" onerror="this.outerHTML='<div style=\'width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;\'><i class=\'bi bi-newspaper\' style=\'color:var(--pw-border2);font-size:18px;\'></i></div>';" alt="">`
-            : `<div style="width:52px;height:52px;border-radius:7px;background:var(--pw-bg3);border:1px solid var(--pw-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi bi-newspaper" style="color:var(--pw-border2);font-size:18px;"></i></div>`;
+        const thumbHtml = `<img src="${a.image}"
+            style="width:52px;height:52px;object-fit:cover;border-radius:7px;flex-shrink:0;border:1px solid var(--pw-border);"
+            onerror="this.style.display='none'" alt="">`;
 
-        const innerHtml = `
+        const el = document.createElement('a');
+        el.href   = a.url;
+        el.target = '_blank';
+        el.rel    = 'noopener';
+        el.className = 'pw-live-intel-item';
+        el.innerHTML = `
             ${thumbHtml}
             <div style="flex:1;min-width:0;">
                 <div style="font-size:12px;font-weight:600;color:#fff;line-height:1.4;
@@ -571,18 +580,6 @@ async function renderNewsFeed(country, code) {
                 </div>
             </div>
         `;
-
-        let el;
-        if (hasUrl) {
-            el = document.createElement('a');
-            el.href   = a.url;
-            el.target = '_blank';
-            el.rel    = 'noopener';
-        } else {
-            el = document.createElement('div');
-        }
-        el.className = 'pw-live-intel-item';
-        el.innerHTML = innerHtml;
         feed.appendChild(el);
     });
 

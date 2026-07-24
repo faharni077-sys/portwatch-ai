@@ -13,7 +13,7 @@ class NewsController extends Controller
         $max = min((int) $request->input('max', 10), 20); // cap at 20
         $from = $request->input('from');
 
-        $apiKey = env('GNEWS_API_KEY', '');
+        $apiKey = config('services.gnews.key', '');
 
         if (!$apiKey) {
             return response()->json(['articles' => []]);
